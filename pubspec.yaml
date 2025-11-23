@@ -66,11 +66,10 @@ flutter:
     - assets/images/
     - assets/images/logo.png
     - assets/images/CoRide.png
-
-# Configuration Icône App
+    - assets/images/widget.png
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/CoRide.png"
+  image_path: "assets/images/widget.png"
   adaptive_icon_background: "#1e3a8a"
-  adaptive_icon_foreground: "assets/images/CoRide.png"
+  adaptive_icon_foreground: "assets/images/widget.png"
