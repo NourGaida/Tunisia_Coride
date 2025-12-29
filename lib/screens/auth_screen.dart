@@ -127,7 +127,7 @@ class _AuthScreenState extends State<AuthScreen>
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -179,7 +179,7 @@ class _AuthScreenState extends State<AuthScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withOpacity(0.3),
+                color: AppColors.primary.withValues(alpha: 0.3),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -247,7 +247,7 @@ class _AuthScreenState extends State<AuthScreen>
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -559,7 +559,7 @@ class _AuthScreenState extends State<AuthScreen>
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
+            color: AppColors.primary.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -596,18 +596,18 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   Widget _buildTermsText() {
-    return Text.rich(
+    return const Text.rich(
       TextSpan(
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13,
           color: Color(0xFF9CA3AF),
           height: 1.5,
         ),
         children: [
-          const TextSpan(text: 'En continuant, vous acceptez nos '),
+          TextSpan(text: 'En continuant, vous acceptez nos '),
           TextSpan(
             text: "Conditions d'utilisation",
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.primary,
               fontWeight: FontWeight.w600,
             ),
