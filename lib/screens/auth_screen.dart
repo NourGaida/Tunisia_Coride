@@ -307,9 +307,7 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  // ═══════════════════════════════════════════════
-  // 📑 ONGLETS (Connexion / Inscription)
-  // ═══════════════════════════════════════════════
+  //  ONGLETS (Connexion / Inscription)
   Widget _buildTabs() {
     return Container(
       margin: const EdgeInsets.all(16),
@@ -353,7 +351,7 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   // ═══════════════════════════════════════════════
-  // 🔐 FORMULAIRE CONNEXION
+  //  FORMULAIRE CONNEXION
   // ═══════════════════════════════════════════════
   Widget _buildLoginForm() {
     return Column(
@@ -417,7 +415,7 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   // ═══════════════════════════════════════════════
-  // 📝 FORMULAIRE INSCRIPTION
+  //  FORMULAIRE INSCRIPTION
   // ═══════════════════════════════════════════════
   Widget _buildSignupForm() {
     return Column(

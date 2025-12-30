@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Importer FirebaseAuth
+import 'package:cloud_firestore/cloud_firestore.dart'; // Importer Cloud Firestore
 import '../widgets/bottom_nav.dart';
 import '../utils/constants.dart';
+import 'auth_screen.dart';
+import 'search_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,6 +15,67 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  User? _currentUser; // Pour stocker les informations de l'utilisateur Firebase
+
+  // Instance de Firestore pour récupérer les trajets
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // Liste pour stocker les trajets populaires (exemple)
+  List<DocumentSnapshot> _popularTrips = [];
+  bool _isLoadingTrips = true; // Pour gérer l'état de chargement des trajets
+
+  @override
+  void initState() {
+    super.initState();
+    _checkCurrentUser(); // Vérifie l'utilisateur actuel au démarrage de l'écran
+    _fetchPopularTrips(); // Charge les trajets populaires
+  }
+
+  void _checkCurrentUser() {
+    // Écoute les changements d'état d'authentification
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+        });
+        if (user == null) {
+          // Si l'utilisateur se déconnecte, redirige vers l'écran d'authentification
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const AuthScreen()),
+          );
+        }
+      }
+    });
+  }
+
+  void _fetchPopularTrips() async {
+    try {
+      // Récupère les 5 trajets les plus populaires (vous devrez définir la logique de "popularité" dans Firestore)
+      // Par exemple, en triant par un champ 'vues' ou 'likes'
+      QuerySnapshot querySnapshot = await _firestore
+          .collection('trips') // Supposons une collection 'trips'
+          .orderBy('popularityScore',
+              descending: true) // Trie par un score de popularité
+          .limit(5)
+          .get();
+
+      if (mounted) {
+        setState(() {
+          _popularTrips = querySnapshot.docs;
+          _isLoadingTrips = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur lors du chargement des trajets populaires : $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingTrips = false;
+        });
+      }
+      // Optionnel: afficher un message d'erreur à l'utilisateur
+      _showSnackBar('Impossible de charger les trajets. Veuillez réessayer.');
+    }
+  }
 
   void _onNavTap(int index) {
     setState(() {
@@ -24,6 +89,8 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       case 1:
         debugPrint('Navigation vers Recherche');
+        // Exemple de déconnexion pour le test (peut être déplacé ailleurs)
+        // FirebaseAuth.instance.signOut();
         break;
       case 2:
         debugPrint('Navigation vers Publier');
@@ -35,6 +102,19 @@ class _HomeScreenState extends State<HomeScreen> {
         debugPrint('Navigation vers Profil');
         break;
     }
+  }
+
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+      ),
+    );
   }
 
   @override
@@ -57,7 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Titre avec logo
+                          // Titre avec logo et nom d'utilisateur
                           _buildHeader(),
 
                           const SizedBox(height: 24),
@@ -141,7 +221,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.1),
+                        color:
+                            AppColors.accent.withOpacity(0.1), // Correction ici
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Text(
@@ -158,11 +239,27 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // État vide (pas de trajets)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: _buildEmptyState(),
-            ),
+            // Contenu des trajets populaires ou état vide
+            _isLoadingTrips
+                ? const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : _popularTrips.isEmpty
+                    ? SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _buildEmptyState(),
+                      )
+                    : SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            // Afficher chaque trajet populaire ici
+                            // Remplacez par votre widget de carte de trajet
+                            return _buildTripCard(_popularTrips[index]);
+                          },
+                          childCount: _popularTrips.length,
+                        ),
+                      ),
           ],
         ),
       ),
@@ -173,7 +270,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Header avec logo et notifications
+  // Header avec logo, nom d'utilisateur et notifications
   Widget _buildHeader() {
     return Row(
       children: [
@@ -182,7 +279,6 @@ class _HomeScreenState extends State<HomeScreen> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.white,
             borderRadius: BorderRadius.circular(10),
           ),
           padding: const EdgeInsets.all(6),
@@ -200,12 +296,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(width: 12),
 
-        // Titre
-        const Expanded(
+        // Titre + Nom d'utilisateur
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'Tunisia CoRide',
                 style: TextStyle(
                   fontSize: 20,
@@ -213,13 +309,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: Colors.white,
                 ),
               ),
-              Text(
-                'Connecting your journeys',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white70,
-                ),
-              ),
+              _currentUser != null
+                  ? Text(
+                      'Bienvenue, ${_currentUser!.displayName ?? _currentUser!.email?.split('@')[0] ?? 'Utilisateur'} !',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.white70,
+                      ),
+                    )
+                  : const Text(
+                      'Connecting your journeys',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white70,
+                      ),
+                    ),
             ],
           ),
         ),
@@ -228,6 +332,8 @@ class _HomeScreenState extends State<HomeScreen> {
         IconButton(
           onPressed: () {
             debugPrint('Notifications');
+            // Optionnel: Déconnexion pour les tests
+            // FirebaseAuth.instance.signOut();
           },
           icon: const Icon(
             Icons.notifications_outlined,
@@ -247,7 +353,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withOpacity(0.1), // Correction ici
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -257,7 +363,10 @@ class _HomeScreenState extends State<HomeScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // TODO: Navigation vers SearchScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SearchScreen()),
+            );
             debugPrint('Navigation vers Recherche');
           },
           borderRadius: BorderRadius.circular(12),
@@ -307,7 +416,7 @@ class _HomeScreenState extends State<HomeScreen> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity(0.1), // Correction ici
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -330,6 +439,28 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Widget pour afficher un trajet (à adapter)
+  Widget _buildTripCard(DocumentSnapshot trip) {
+    // Remplacez ceci par votre véritable design de carte de trajet
+    Map<String, dynamic> data = trip.data() as Map<String, dynamic>;
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Départ: ${data['departureLocation'] ?? 'N/A'}'),
+            Text('Arrivée: ${data['arrivalLocation'] ?? 'N/A'}'),
+            Text('Date: ${data['date']?.toDate() ?? 'N/A'}'),
+            Text('Prix: ${data['price'] ?? 'N/A'} DT'),
+            // Ajoutez d'autres champs si nécessaire
+          ],
+        ),
+      ),
+    );
+  }
+
   // État vide (pas encore de trajets)
   Widget _buildEmptyState() {
     return Center(
@@ -343,7 +474,7 @@ class _HomeScreenState extends State<HomeScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
+                color: AppColors.primary.withOpacity(0.1), // Correction ici
                 shape: BoxShape.circle,
               ),
               child: const Icon(
