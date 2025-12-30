@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'utils/theme.dart';
 import 'screens/splash_screen.dart';
 
-void main() {
-  // Configuration avant de lancer l'app
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Forcer l'orientation portrait
+  // Initialisation Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // orientation portrait
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -24,7 +30,7 @@ class CoRideApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       // Configuration générale
-      title: 'Tunisia CoRide', // ← Nom affiché dans l'émulateur
+      title: 'Tunisia CoRide',
       debugShowCheckedModeBanner: false,
 
       // Thème

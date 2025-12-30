@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "901036982016",
+    "project_id": "tunisia-coride",
+    "storage_bucket": "tunisia-coride.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:901036982016:android:5bbdcbba1595a2cff1fde5",
+        "android_client_info": {
+          "package_name": "com.example.my_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCUDBsJa01ccQGqM_SO8t-55XHDSBLZWh8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

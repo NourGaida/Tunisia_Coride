@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import '../models/ride.dart';
-import '../widgets/ride_card.dart';
 import '../widgets/bottom_nav.dart';
 import '../utils/constants.dart';
 
@@ -13,61 +11,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-
-  // Données mockées
-  final List<Ride> _mockRides = [
-    Ride(
-      id: '1',
-      driver: Driver(
-        name: 'Salim Ben Youssef',
-        avatar: '',
-        rating: 4.8,
-        trips: 45,
-        bio: 'Étudiant en IT à Sousse',
-      ),
-      from: 'Sousse - Centre Ville',
-      to: 'Tunis - Lac 2',
-      date: '16 Nov',
-      time: '08:00',
-      price: 15,
-      seats: 3,
-      description: 'Trajet direct par autoroute',
-    ),
-    Ride(
-      id: '2',
-      driver: Driver(
-        name: 'Lilia Ben Yahia',
-        avatar: '',
-        rating: 4.9,
-        trips: 156,
-        bio: 'Employée dans une entreprise privée',
-      ),
-      from: 'Ariana - Centre',
-      to: 'Tunis - Centre Ville',
-      date: '15 Nov',
-      time: '07:30',
-      price: 5,
-      seats: 2,
-      description: 'Trajet quotidien vers le centre-ville',
-    ),
-    Ride(
-      id: '3',
-      driver: Driver(
-        name: 'Salim Ben Youssef',
-        avatar: '',
-        rating: 4.8,
-        trips: 45,
-        bio: 'Étudiant en IT',
-      ),
-      from: 'Tunis - Gare',
-      to: 'Sousse - Port',
-      date: '17 Nov',
-      time: '17:00',
-      price: 18,
-      seats: 4,
-      description: 'Retour vers Sousse en fin d\'après-midi',
-    ),
-  ];
 
   void _onNavTap(int index) {
     setState(() {
@@ -94,11 +37,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _onRideTap(Ride ride) {
-    // TODO: Navigation vers détail du trajet
-    debugPrint('Clic sur trajet: ${ride.id}');
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -106,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            // Header
+            // Header avec dégradé
             SliverToBoxAdapter(
               child: Container(
                 decoration: const BoxDecoration(
@@ -119,55 +57,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Titre
-                          Row(
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(
-                                  Icons.directions_car,
-                                  color: AppColors.primary,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Tunisia CoRide',
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Connecting your journeys',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.white70,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () {},
-                                icon: const Icon(
-                                  Icons.notifications_outlined,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                            ],
-                          ),
+                          // Titre avec logo
+                          _buildHeader(),
 
                           const SizedBox(height: 24),
 
@@ -229,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // Trajets populaires
+            // Section Trajets populaires
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
@@ -267,23 +158,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // Liste des trajets
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: RideCard(
-                        ride: _mockRides[index],
-                        onTap: () => _onRideTap(_mockRides[index]),
-                      ),
-                    );
-                  },
-                  childCount: _mockRides.length,
-                ),
-              ),
+            // État vide (pas de trajets)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _buildEmptyState(),
             ),
           ],
         ),
@@ -292,6 +170,72 @@ class _HomeScreenState extends State<HomeScreen> {
         currentIndex: _currentIndex,
         onTap: _onNavTap,
       ),
+    );
+  }
+
+  // Header avec logo et notifications
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        // Logo
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.all(6),
+          child: Image.asset(
+            AppAssets.logo,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return const Icon(
+                Icons.directions_car,
+                color: AppColors.primary,
+                size: 24,
+              );
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        // Titre
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Tunisia CoRide',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              Text(
+                'Connecting your journeys',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.white70,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Bouton notifications
+        IconButton(
+          onPressed: () {
+            debugPrint('Notifications');
+          },
+          icon: const Icon(
+            Icons.notifications_outlined,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
+      ],
     );
   }
 
@@ -382,6 +326,78 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // État vide (pas encore de trajets)
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Icône
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.search_off,
+                size: 60,
+                color: AppColors.primary,
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Titre
+            const Text(
+              'Aucun trajet disponible',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF111827),
+              ),
+              textAlign: TextAlign.center,
+            ),
+
+            const SizedBox(height: 12),
+
+            // Description
+            Text(
+              'Les trajets seront chargés\n',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+
+            const SizedBox(height: 32),
+
+            // Bouton Publier
+            ElevatedButton.icon(
+              onPressed: () {
+                // TODO: Navigation vers PublishRideScreen
+                debugPrint('Navigation vers Publier un trajet');
+              },
+              icon: const Icon(Icons.add_circle_outline),
+              label: const Text('Publier un trajet'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

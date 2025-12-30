@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Importez FirebaseAuth
+import 'package:cloud_firestore/cloud_firestore.dart'; // Importez Cloud Firestore
 import '../utils/constants.dart';
 import 'home_screen.dart';
 
@@ -28,6 +30,10 @@ class _AuthScreenState extends State<AuthScreen>
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  // Instances de Firebase
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   @override
   void initState() {
     super.initState();
@@ -56,14 +62,45 @@ class _AuthScreenState extends State<AuthScreen>
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
-    setState(() => _isLoading = false);
 
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+    try {
+      await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
       );
+
+      // Si la connexion réussit, naviguez vers HomeScreen
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'user-not-found':
+          message = 'Aucun utilisateur trouvé pour cet email.';
+          break;
+        case 'wrong-password':
+          message = 'Mot de passe incorrect.';
+          break;
+        case 'invalid-email':
+          message = 'L\'adresse email est mal formatée.';
+          break;
+        case 'invalid-credential': // Pour les versions récentes de Firebase Auth
+          message = 'Identifiants invalides.';
+          break;
+        default:
+          message = 'Erreur de connexion : ${e.message}';
+      }
+      _showSnackBar(message);
+    } catch (e) {
+      _showSnackBar('Une erreur inattendue est survenue: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -79,14 +116,55 @@ class _AuthScreenState extends State<AuthScreen>
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
-    setState(() => _isLoading = false);
 
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+    try {
+      // 1. Créer l'utilisateur avec Firebase Authentication
+      UserCredential userCredential =
+          await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
       );
+
+      // 2. Stocker les informations supplémentaires dans Cloud Firestore
+      if (userCredential.user != null) {
+        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+          'name': name,
+          'email': email,
+          'phone': phone,
+          'createdAt':
+              FieldValue.serverTimestamp(), // Ajoute un timestamp du serveur
+        });
+      }
+
+      // Si l'inscription réussit et les données Firestore sont enregistrées, naviguez vers HomeScreen
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'weak-password':
+          message = 'Le mot de passe fourni est trop faible.';
+          break;
+        case 'email-already-in-use':
+          message = 'Un compte existe déjà pour cette adresse email.';
+          break;
+        case 'invalid-email':
+          message = 'L\'adresse email est mal formatée.';
+          break;
+        default:
+          message = 'Erreur d\'inscription : ${e.message}';
+      }
+      _showSnackBar(message);
+    } catch (e) {
+      _showSnackBar('Une erreur inattendue est survenue: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -127,7 +205,8 @@ class _AuthScreenState extends State<AuthScreen>
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color:
+                              Colors.black.withOpacity(0.05), // Correction ici
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -179,7 +258,7 @@ class _AuthScreenState extends State<AuthScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.3),
+                color: AppColors.primary.withOpacity(0.3), // Correction ici
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -247,7 +326,7 @@ class _AuthScreenState extends State<AuthScreen>
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
+              color: Colors.black.withOpacity(0.08), // Correction ici
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -305,7 +384,10 @@ class _AuthScreenState extends State<AuthScreen>
           alignment: Alignment.centerRight,
           child: TextButton(
             onPressed: () {
-              _showSnackBar('Fonctionnalité à venir');
+              // TODO: Implémenter la récupération de mot de passe Firebase
+              // Exemple: await _auth.sendPasswordResetEmail(email: _loginEmailController.text.trim());
+              _showSnackBar(
+                  'Fonctionnalité de récupération de mot de passe à venir');
             },
             style: TextButton.styleFrom(
               padding: EdgeInsets.zero,
@@ -391,7 +473,7 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   // ═══════════════════════════════════════════════
-  // 🧩 COMPOSANTS RÉUTILISABLES
+  // 🧩 COMPOSANTS RÉUTILISABLES (inchangés ou avec corrections cosmétiques)
   // ═══════════════════════════════════════════════
 
   Widget _buildLabel(String text) {
@@ -559,7 +641,7 @@ class _AuthScreenState extends State<AuthScreen>
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.3),
+            color: AppColors.primary.withOpacity(0.3), // Correction ici
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
