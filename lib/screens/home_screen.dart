@@ -6,6 +6,7 @@ import '../utils/constants.dart';
 import 'auth_screen.dart';
 import 'search_screen.dart';
 import 'publish_ride_screen.dart';
+import 'messages_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,10 +26,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _checkCurrentUser();
+    _checkCurrentUser(); // from first version
     _fetchPopularTrips();
   }
 
+  // Authentication logic from the first version
   void _checkCurrentUser() {
     FirebaseAuth.instance.authStateChanges().listen((User? user) {
       if (mounted) {
@@ -78,7 +80,15 @@ class _HomeScreenState extends State<HomeScreen> {
       case 0:
         break; // Déjà sur Home
       case 1:
-        debugPrint('Navigation vers Recherche');
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SearchScreen()),
+        ).then((_) {
+          // Reset index after coming back
+          setState(() {
+            _currentIndex = 0;
+          });
+        });
         break;
       case 2:
         Navigator.push(
@@ -87,7 +97,10 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         break;
       case 3:
-        debugPrint('Navigation vers Messages');
+        Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => const MessagesScreen()),
+  );
         break;
       case 4:
         debugPrint('Navigation vers Profil');
@@ -115,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            // Header avec dégradé
+            // Header with gradient
             SliverToBoxAdapter(
               child: Container(
                 decoration: const BoxDecoration(
@@ -128,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       _buildHeader(),
                       const SizedBox(height: 24),
-                      _buildSearchBar(),
+                      _buildSearchBar(), // search from first version
                     ],
                   ),
                 ),
@@ -183,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // Trajets populaires
+            // Popular trips
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
@@ -219,25 +232,24 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
             _isLoadingTrips
-    ? const SliverToBoxAdapter(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
-            child: CircularProgressIndicator(),
-          ),
-        ),
-      )
-    : _popularTrips.isEmpty
-        ? SliverToBoxAdapter(
-            child: _buildEmptyState(),
-          )
-        : SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => _buildTripCard(_popularTrips[index]),
-              childCount: _popularTrips.length,
-            ),
-          ),
-
+                ? const SliverToBoxAdapter(
+                    child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40),
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                  )
+                : _popularTrips.isEmpty
+                    ? SliverToBoxAdapter(
+                        child: _buildEmptyState(),
+                      )
+                    : SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => _buildTripCard(_popularTrips[index]),
+                          childCount: _popularTrips.length,
+                        ),
+                      ),
           ],
         ),
       ),
@@ -294,6 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSearchBar() {
+    // search behavior from first version
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -323,6 +336,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Feature cards, trip card, empty state remain as in the last version
   Widget _buildFeatureCard({required IconData icon, required String title, required Color color}) {
     return Container(
       padding: const EdgeInsets.all(16),
