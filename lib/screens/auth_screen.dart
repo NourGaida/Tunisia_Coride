@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Importez FirebaseAuth
-import 'package:cloud_firestore/cloud_firestore.dart'; // Importez Cloud Firestore
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/constants.dart';
 import 'home_screen.dart';
 
@@ -88,7 +88,7 @@ class _AuthScreenState extends State<AuthScreen>
         case 'invalid-email':
           message = 'L\'adresse email est mal formatée.';
           break;
-        case 'invalid-credential': // Pour les versions récentes de Firebase Auth
+        case 'invalid-credential':
           message = 'Identifiants invalides.';
           break;
         default:
@@ -131,8 +131,7 @@ class _AuthScreenState extends State<AuthScreen>
           'name': name,
           'email': email,
           'phone': phone,
-          'createdAt':
-              FieldValue.serverTimestamp(), // Ajoute un timestamp du serveur
+          'createdAt': FieldValue.serverTimestamp(),
         });
       }
 
@@ -205,8 +204,7 @@ class _AuthScreenState extends State<AuthScreen>
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color:
-                              Colors.black.withOpacity(0.05), // Correction ici
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -258,7 +256,7 @@ class _AuthScreenState extends State<AuthScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withOpacity(0.3), // Correction ici
+                color: AppColors.primary.withValues(alpha: 0.3),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -307,7 +305,7 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  //  ONGLETS (Connexion / Inscription)
+  // ONGLETS (Connexion / Inscription)
   Widget _buildTabs() {
     return Container(
       margin: const EdgeInsets.all(16),
@@ -324,7 +322,7 @@ class _AuthScreenState extends State<AuthScreen>
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08), // Correction ici
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -351,7 +349,7 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   // ═══════════════════════════════════════════════
-  //  FORMULAIRE CONNEXION
+  // FORMULAIRE CONNEXION
   // ═══════════════════════════════════════════════
   Widget _buildLoginForm() {
     return Column(
@@ -415,7 +413,7 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   // ═══════════════════════════════════════════════
-  //  FORMULAIRE INSCRIPTION
+  // FORMULAIRE INSCRIPTION
   // ═══════════════════════════════════════════════
   Widget _buildSignupForm() {
     return Column(
@@ -471,7 +469,7 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   // ═══════════════════════════════════════════════
-  // 🧩 COMPOSANTS RÉUTILISABLES (inchangés ou avec corrections cosmétiques)
+  // 🧩 COMPOSANTS RÉUTILISABLES
   // ═══════════════════════════════════════════════
 
   Widget _buildLabel(String text) {
@@ -639,7 +637,7 @@ class _AuthScreenState extends State<AuthScreen>
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.3), // Correction ici
+            color: AppColors.primary.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
