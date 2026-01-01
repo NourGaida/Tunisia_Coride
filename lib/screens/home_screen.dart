@@ -26,11 +26,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _checkCurrentUser(); // from first version
+    _checkCurrentUser();
     _fetchPopularTrips();
   }
 
-  // Authentication logic from the first version
   void _checkCurrentUser() {
     FirebaseAuth.instance.authStateChanges().listen((User? user) {
       if (mounted) {
@@ -78,13 +77,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     switch (index) {
       case 0:
-        break; // Déjà sur Home
+        break;
       case 1:
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const SearchScreen()),
         ).then((_) {
-          // Reset index after coming back
           setState(() {
             _currentIndex = 0;
           });
@@ -98,9 +96,9 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       case 3:
         Navigator.push(
-    context,
-    MaterialPageRoute(builder: (context) => const MessagesScreen()),
-  );
+          context,
+          MaterialPageRoute(builder: (context) => const MessagesScreen()),
+        );
         break;
       case 4:
         debugPrint('Navigation vers Profil');
@@ -128,7 +126,6 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            // Header with gradient
             SliverToBoxAdapter(
               child: Container(
                 decoration: const BoxDecoration(
@@ -141,14 +138,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       _buildHeader(),
                       const SizedBox(height: 24),
-                      _buildSearchBar(), // search from first version
+                      _buildSearchBar(),
                     ],
                   ),
                 ),
               ),
             ),
-
-            // Features
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -195,8 +190,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-
-            // Popular trips
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
@@ -212,9 +205,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppColors.accent.withOpacity(0.1),
+                        color: AppColors.accent.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Text(
@@ -230,7 +224,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-
             _isLoadingTrips
                 ? const SliverToBoxAdapter(
                     child: Center(
@@ -246,7 +239,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       )
                     : SliverList(
                         delegate: SliverChildBuilderDelegate(
-                          (context, index) => _buildTripCard(_popularTrips[index]),
+                          (context, index) =>
+                              _buildTripCard(_popularTrips[index]),
                           childCount: _popularTrips.length,
                         ),
                       ),
@@ -272,7 +266,8 @@ class _HomeScreenState extends State<HomeScreen> {
             AppAssets.logo,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
-              return const Icon(Icons.directions_car, color: AppColors.primary, size: 24);
+              return const Icon(Icons.directions_car,
+                  color: AppColors.primary, size: 24);
             },
           ),
         ),
@@ -283,12 +278,16 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const Text(
                 'Tunisia CoRide',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
               ),
               _currentUser != null
                   ? Text(
                       'Bienvenue, ${_currentUser!.displayName ?? _currentUser!.email?.split('@')[0] ?? 'Utilisateur'} !',
-                      style: const TextStyle(fontSize: 13, color: Colors.white70),
+                      style:
+                          const TextStyle(fontSize: 13, color: Colors.white70),
                     )
                   : const Text(
                       'Connecting your journeys',
@@ -299,24 +298,31 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         IconButton(
           onPressed: () => debugPrint('Notifications'),
-          icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 24),
+          icon: const Icon(Icons.notifications_outlined,
+              color: Colors.white, size: 24),
         ),
       ],
     );
   }
 
   Widget _buildSearchBar() {
-    // search behavior from first version
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchScreen())),
+          onTap: () => Navigator.push(
+              context, MaterialPageRoute(builder: (_) => const SearchScreen())),
           borderRadius: BorderRadius.circular(12),
           child: const Padding(
             padding: EdgeInsets.all(16),
@@ -336,21 +342,32 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Feature cards, trip card, empty state remain as in the last version
-  Widget _buildFeatureCard({required IconData icon, required String title, required Color color}) {
+  Widget _buildFeatureCard(
+      {required IconData icon, required String title, required Color color}) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE5E7EB))),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
       child: Column(
         children: [
           Container(
             width: 48,
             height: 48,
-            decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
             child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(height: 8),
-          Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF374151))),
         ],
       ),
     );
@@ -385,27 +402,38 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               width: 120,
               height: 120,
-              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), shape: BoxShape.circle),
-              child: const Icon(Icons.search_off, size: 60, color: AppColors.primary),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.search_off,
+                  size: 60, color: AppColors.primary),
             ),
             const SizedBox(height: 24),
             const Text(
               'Aucun trajet disponible',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Color(0xFF111827)),
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF111827)),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
               'Les trajets seront chargés\n',
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5),
+              style: TextStyle(
+                  fontSize: 14, color: AppColors.textSecondary, height: 1.5),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PublishRideScreen())),
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const PublishRideScreen())),
               icon: const Icon(Icons.add_circle_outline),
               label: const Text('Publier un trajet'),
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16)),
+              style: ElevatedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 16)),
             ),
           ],
         ),

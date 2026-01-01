@@ -26,7 +26,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  
+
   bool _isSending = false;
 
   @override
@@ -68,7 +68,6 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _isSending = true);
 
     try {
-      // Ajouter le message à Firestore
       await _firestore
           .collection('conversations')
           .doc(widget.conversationId)
@@ -81,7 +80,6 @@ class _ChatScreenState extends State<ChatScreen> {
         'isRead': false,
       });
 
-      // Mettre à jour la conversation
       await _firestore
           .collection('conversations')
           .doc(widget.conversationId)
@@ -92,10 +90,8 @@ class _ChatScreenState extends State<ChatScreen> {
         'unreadCount_${widget.otherUserId}': FieldValue.increment(1),
       });
 
-      // Vider le champ
       _messageController.clear();
-      
-      // Scroll vers le bas
+
       Future.delayed(const Duration(milliseconds: 100), () {
         if (_scrollController.hasClients) {
           _scrollController.animateTo(
@@ -105,7 +101,6 @@ class _ChatScreenState extends State<ChatScreen> {
           );
         }
       });
-
     } catch (e) {
       debugPrint('Erreur envoi message: $e');
       if (mounted) {
@@ -138,7 +133,7 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundColor: AppColors.primary.withOpacity(0.1),
+              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
               backgroundImage: widget.otherUserAvatar != null
                   ? NetworkImage(widget.otherUserAvatar!)
                   : null,
@@ -184,7 +179,6 @@ class _ChatScreenState extends State<ChatScreen> {
           IconButton(
             icon: const Icon(Icons.more_vert),
             onPressed: () {
-              // TODO: Options du chat
               debugPrint('Options chat');
             },
           ),
@@ -192,7 +186,6 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
-          // Messages
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _firestore
@@ -259,7 +252,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     final data = message.data() as Map<String, dynamic>;
                     final isMe = data['senderId'] == currentUserId;
                     final text = data['text'] as String? ?? '';
-                    final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
+                    final timestamp =
+                        (data['timestamp'] as Timestamp?)?.toDate();
 
                     return _buildMessageBubble(
                       text: text,
@@ -271,8 +265,6 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-
-          // Input zone
           _buildMessageInput(),
         ],
       ),
@@ -287,13 +279,14 @@ class _ChatScreenState extends State<ChatScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe) ...[
             CircleAvatar(
               radius: 16,
-              backgroundColor: AppColors.primary.withOpacity(0.1),
+              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
               backgroundImage: widget.otherUserAvatar != null
                   ? NetworkImage(widget.otherUserAvatar!)
                   : null,
@@ -310,7 +303,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             const SizedBox(width: 8),
           ],
-          
           Flexible(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -325,7 +317,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -348,8 +340,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       _formatTime(timestamp),
                       style: TextStyle(
                         fontSize: 11,
-                        color: isMe 
-                            ? Colors.white.withOpacity(0.8)
+                        color: isMe
+                            ? Colors.white.withValues(alpha: 0.8)
                             : AppColors.textMuted,
                       ),
                     ),
@@ -358,7 +350,6 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
-          
           if (isMe) const SizedBox(width: 8),
         ],
       ),
@@ -372,7 +363,7 @@ class _ChatScreenState extends State<ChatScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -404,10 +395,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
             ),
-            
             const SizedBox(width: 8),
-            
-            // Bouton envoyer
             Container(
               width: 48,
               height: 48,
@@ -416,7 +404,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
+                    color: AppColors.primary.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),

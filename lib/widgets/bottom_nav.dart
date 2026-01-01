@@ -18,7 +18,7 @@ class BottomNav extends StatelessWidget {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black..withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -87,9 +87,7 @@ class BottomNav extends StatelessWidget {
               Icon(
                 isActive ? activeIcon : icon,
                 size: 22,
-                color: isActive
-                    ? AppColors.primary
-                    : const Color(0xFF9CA3AF),
+                color: isActive ? AppColors.primary : const Color(0xFF9CA3AF),
               ),
               const SizedBox(height: 4),
               Text(
@@ -98,11 +96,8 @@ class BottomNav extends StatelessWidget {
                 overflow: TextOverflow.ellipsis, // 🔑 prevents overflow
                 style: TextStyle(
                   fontSize: 11,
-                  fontWeight:
-                      isActive ? FontWeight.w600 : FontWeight.w500,
-                  color: isActive
-                      ? AppColors.primary
-                      : const Color(0xFF9CA3AF),
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                  color: isActive ? AppColors.primary : const Color(0xFF9CA3AF),
                 ),
               ),
             ],

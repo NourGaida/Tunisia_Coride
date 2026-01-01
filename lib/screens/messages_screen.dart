@@ -13,7 +13,7 @@ class MessagesScreen extends StatefulWidget {
 }
 
 class _MessagesScreenState extends State<MessagesScreen> {
-  int _currentIndex = 3; // Messages tab
+  int _currentIndex = 3;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -36,14 +36,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              // TODO: Recherche de conversations
               debugPrint('Recherche de messages');
             },
           ),
           IconButton(
             icon: const Icon(Icons.more_vert),
             onPressed: () {
-              // TODO: Options
               debugPrint('Options messages');
             },
           ),
@@ -81,7 +79,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
             itemBuilder: (context, index) {
               final conversation = conversations[index];
               final data = conversation.data() as Map<String, dynamic>;
-              
+
               return _buildConversationTile(
                 conversationId: conversation.id,
                 data: data,
@@ -95,7 +93,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
         currentIndex: _currentIndex,
         onTap: (index) {
           setState(() => _currentIndex = index);
-          // TODO: Navigation vers autres écrans
         },
       ),
     );
@@ -106,7 +103,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
     required Map<String, dynamic> data,
     required String currentUserId,
   }) {
-    // Récupérer l'ID de l'autre participant
     final participants = List<String>.from(data['participants'] ?? []);
     final otherUserId = participants.firstWhere(
       (id) => id != currentUserId,
@@ -125,13 +121,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
         }
 
         final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
-        final userName = userData?['displayName'] ?? 
-                        userData?['email']?.split('@')[0] ?? 
-                        'Utilisateur';
+        final userName = userData?['displayName'] ??
+            userData?['email']?.split('@')[0] ??
+            'Utilisateur';
         final userAvatar = userData?['photoUrl'] as String?;
-        
+
         final lastMessage = data['lastMessage'] as String? ?? '';
-        final lastMessageTime = (data['lastMessageTime'] as Timestamp?)?.toDate();
+        final lastMessageTime =
+            (data['lastMessageTime'] as Timestamp?)?.toDate();
         final unreadCount = data['unreadCount_$currentUserId'] as int? ?? 0;
         final tripInfo = data['tripInfo'] as Map<String, dynamic>?;
 
@@ -153,15 +150,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                // Avatar
                 Stack(
                   children: [
                     CircleAvatar(
                       radius: 28,
-                      backgroundColor: AppColors.primary.withOpacity(0.1),
-                      backgroundImage: userAvatar != null 
-                          ? NetworkImage(userAvatar) 
-                          : null,
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                      backgroundImage:
+                          userAvatar != null ? NetworkImage(userAvatar) : null,
                       child: userAvatar == null
                           ? Text(
                               userName[0].toUpperCase(),
@@ -173,7 +168,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
                             )
                           : null,
                     ),
-                    // Badge de notification
                     if (unreadCount > 0)
                       Positioned(
                         top: 0,
@@ -202,15 +196,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       ),
                   ],
                 ),
-                
                 const SizedBox(width: 16),
-                
-                // Contenu
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Nom + Heure
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -231,38 +221,33 @@ class _MessagesScreenState extends State<MessagesScreen> {
                               _formatMessageTime(lastMessageTime),
                               style: TextStyle(
                                 fontSize: 12,
-                                color: unreadCount > 0 
-                                    ? AppColors.accent 
+                                color: unreadCount > 0
+                                    ? AppColors.accent
                                     : AppColors.textMuted,
-                                fontWeight: unreadCount > 0 
-                                    ? FontWeight.w600 
+                                fontWeight: unreadCount > 0
+                                    ? FontWeight.w600
                                     : FontWeight.normal,
                               ),
                             ),
                         ],
                       ),
-                      
                       const SizedBox(height: 4),
-                      
-                      // Dernier message
                       Text(
-                        lastMessage.isEmpty 
-                            ? 'Nouvelle conversation' 
+                        lastMessage.isEmpty
+                            ? 'Nouvelle conversation'
                             : lastMessage,
                         style: TextStyle(
                           fontSize: 14,
-                          color: unreadCount > 0 
-                              ? AppColors.textPrimary 
+                          color: unreadCount > 0
+                              ? AppColors.textPrimary
                               : AppColors.textSecondary,
-                          fontWeight: unreadCount > 0 
-                              ? FontWeight.w500 
+                          fontWeight: unreadCount > 0
+                              ? FontWeight.w500
                               : FontWeight.normal,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      
-                      // Info trajet (si disponible)
                       if (tripInfo != null) ...[
                         const SizedBox(height: 4),
                         Text(
@@ -334,7 +319,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -343,9 +328,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 color: AppColors.primary,
               ),
             ),
-            
             const SizedBox(height: 24),
-            
             const Text(
               'Aucun message',
               style: TextStyle(
@@ -354,9 +337,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 color: AppColors.textPrimary,
               ),
             ),
-            
             const SizedBox(height: 12),
-            
             const Text(
               'Réservez un trajet pour commencer\nune conversation avec le conducteur',
               style: TextStyle(
@@ -435,7 +416,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: () {
-                  // TODO: Navigation vers AuthScreen
                   debugPrint('Navigation vers connexion');
                 },
                 child: const Text('Se connecter'),
@@ -452,17 +432,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final difference = now.difference(time);
 
     if (difference.inDays == 0) {
-      // Aujourd'hui - afficher l'heure
       return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
     } else if (difference.inDays == 1) {
-      // Hier
       return 'Hier';
     } else if (difference.inDays < 7) {
-      // Cette semaine - afficher le jour
       final days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
       return days[time.weekday - 1];
     } else {
-      // Plus ancien - afficher la date
       return '${time.day}/${time.month}/${time.year}';
     }
   }
