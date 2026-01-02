@@ -18,17 +18,17 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
   final _dateController = TextEditingController();
   final _heureController = TextEditingController();
   final _descriptionController = TextEditingController();
-  
+
   // Valeurs sélectionnées
   int _placesDisponibles = 2;
   int _prixParPersonne = 30;
   String _musique = 'Oui';
   String _animaux = 'Non accepté';
   String _bagages = 'Moyen';
-  
+
   // État de publication
   bool _isPublishing = false;
-  
+
   // Date et heure sélectionnées (pour Firebase)
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
@@ -62,7 +62,8 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
 
   void _updateTimeDisplay() {
     if (_selectedTime != null) {
-      final hour = _selectedTime!.hourOfPeriod == 0 ? 12 : _selectedTime!.hourOfPeriod;
+      final hour =
+          _selectedTime!.hourOfPeriod == 0 ? 12 : _selectedTime!.hourOfPeriod;
       final minute = _selectedTime!.minute.toString().padLeft(2, '0');
       final period = _selectedTime!.period == DayPeriod.am ? 'AM' : 'PM';
       _heureController.text = '$hour:$minute $period';
@@ -71,7 +72,7 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
 
   Future<void> _publierTrajet() async {
     // Validation des champs
-    if (_departController.text.trim().isEmpty || 
+    if (_departController.text.trim().isEmpty ||
         _arriveeController.text.trim().isEmpty) {
       _showSnackBar(
         'Veuillez remplir les champs Départ et Arrivée',
@@ -113,7 +114,9 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
       // Créer l'objet trajet pour Firestore
       final tripData = {
         'driverId': currentUser.uid,
-        'driverName': currentUser.displayName ?? currentUser.email?.split('@')[0] ?? 'Conducteur',
+        'driverName': currentUser.displayName ??
+            currentUser.email?.split('@')[0] ??
+            'Conducteur',
         'driverEmail': currentUser.email,
         'departureLocation': _departController.text.trim(),
         'arrivalLocation': _arriveeController.text.trim(),
@@ -126,7 +129,7 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
           'pets': _animaux,
           'luggage': _bagages,
         },
-        'status': 'active', // active, completed, cancelled
+        'status': 'upcoming',
         'popularityScore': 0, // Pour le tri des trajets populaires
         'bookings': [], // Liste des réservations
         'createdAt': FieldValue.serverTimestamp(),
@@ -134,21 +137,18 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
       };
 
       // Sauvegarder dans Firestore
-      await FirebaseFirestore.instance
-          .collection('trips')
-          .add(tripData);
+      await FirebaseFirestore.instance.collection('trips').add(tripData);
 
       if (!mounted) return;
 
       // Message de succès
       _showSnackBar('Trajet publié avec succès !', isError: false);
-      
+
       // Retour à l'écran précédent après un court délai
       await Future.delayed(const Duration(milliseconds: 500));
       if (mounted) {
         Navigator.pop(context);
       }
-      
     } catch (e) {
       debugPrint('Erreur lors de la publication du trajet: $e');
       if (mounted) {
@@ -203,9 +203,9 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
               icon: Icons.location_on,
               color: AppColors.success,
             ),
-            
+
             const SizedBox(height: 20),
-            
+
             // Arrivée
             _buildLocationField(
               label: 'Arrivée',
@@ -214,9 +214,9 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
               icon: Icons.location_on,
               color: AppColors.error,
             ),
-            
+
             const SizedBox(height: 20),
-            
+
             // Date et Heure
             Row(
               children: [
@@ -239,9 +239,9 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 20),
-            
+
             // Places et Prix
             Row(
               children: [
@@ -267,19 +267,19 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 20),
-            
+
             // Description
             _buildDescriptionField(),
-            
+
             const SizedBox(height: 32),
-            
+
             // Préférences
             _buildPreferencesSection(),
-            
+
             const SizedBox(height: 32),
-            
+
             // Bouton Publier
             SizedBox(
               width: double.infinity,
@@ -289,7 +289,7 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
                 isLoading: _isPublishing,
               ),
             ),
-            
+
             const SizedBox(height: 24),
           ],
         ),
@@ -464,7 +464,8 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
           ),
           child: Row(
             children: [
-              const Icon(Icons.attach_money, color: AppColors.textMuted, size: 20),
+              const Icon(Icons.attach_money,
+                  color: AppColors.textMuted, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonHideUnderline(
@@ -508,7 +509,8 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
           controller: _descriptionController,
           maxLines: 3,
           decoration: InputDecoration(
-            hintText: 'Ajoutez des détails sur votre trajet, point de rendez-vous, etc.',
+            hintText:
+                'Ajoutez des détails sur votre trajet, point de rendez-vous, etc.',
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -550,29 +552,24 @@ class _PublishRideScreenState extends State<PublishRideScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          
           _buildPreferenceRow(
             label: 'Musique',
             value: _musique,
             options: ['Oui', 'Non'],
             onChanged: (val) => setState(() => _musique = val),
           ),
-          
           const SizedBox(height: 12),
-          
           _buildPreferenceRow(
             label: 'Animaux',
             value: _animaux,
             options: ['Accepté', 'Non accepté'],
             onChanged: (val) => setState(() => _animaux = val),
           ),
-          
           const SizedBox(height: 12),
-          
           _buildPreferenceRow(
             label: 'Bagages',
             value: _bagages,
-            options: ['Petit', 'Moyen', 'Grand'],
+            options: ['Non', 'Petit', 'Moyen', 'Grand'],
             onChanged: (val) => setState(() => _bagages = val),
           ),
         ],

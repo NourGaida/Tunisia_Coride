@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/constants.dart';
-import '../widgets/bottom_nav.dart';
 import 'chat_screen.dart';
 
 class MessagesScreen extends StatefulWidget {
@@ -13,7 +12,7 @@ class MessagesScreen extends StatefulWidget {
 }
 
 class _MessagesScreenState extends State<MessagesScreen> {
-  int _currentIndex = 3;
+  // ❌ SUPPRIMÉ: int _currentIndex = 3;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -32,6 +31,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
         centerTitle: false,
         elevation: 0,
         backgroundColor: Colors.white,
+        // ✅ AJOUTÉ: Bouton retour pour revenir à l'écran précédent
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -89,12 +93,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
           );
         },
       ),
-      bottomNavigationBar: BottomNav(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() => _currentIndex = index);
-        },
-      ),
+      // ❌ SUPPRIMÉ: bottomNavigationBar
     );
   }
 
@@ -383,6 +382,16 @@ class _MessagesScreenState extends State<MessagesScreen> {
   Widget _buildNotLoggedIn() {
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('Messages'),
+        centerTitle: false,
+        elevation: 0,
+        backgroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -416,9 +425,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: () {
-                  debugPrint('Navigation vers connexion');
+                  Navigator.pop(context);
                 },
-                child: const Text('Se connecter'),
+                child: const Text('Retour'),
               ),
             ],
           ),

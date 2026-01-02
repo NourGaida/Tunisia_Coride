@@ -7,6 +7,10 @@ import 'auth_screen.dart';
 import 'search_screen.dart';
 import 'publish_ride_screen.dart';
 import 'messages_screen.dart';
+import 'profile_screen.dart';
+import 'trip_detail_screen.dart';
+import '../models/ride.dart';
+import 'package:intl/intl.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,7 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   User? _currentUser;
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  List<DocumentSnapshot> _popularTrips = [];
+  List<Ride> _popularTrips = []; // <<< MODIFIÉ : Stocke des objets Ride
   bool _isLoadingTrips = true;
 
   @override
@@ -47,15 +51,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _fetchPopularTrips() async {
     try {
+      // Filtrer pour n'afficher que les trajets 'upcoming'
+      // et ceux dont la date est supérieure ou égale à aujourd'hui
       QuerySnapshot querySnapshot = await _firestore
           .collection('trips')
+          .where('status',
+              isEqualTo:
+                  'upcoming') // Assurez-vous que le statut est 'upcoming'
+          .where('date',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now()))
           .orderBy('popularityScore', descending: true)
+          .orderBy('date',
+              descending:
+                  false) // Ajouter un ordre par date si popularityScore est le même
           .limit(5)
           .get();
 
       if (mounted) {
         setState(() {
-          _popularTrips = querySnapshot.docs;
+          // Convertit chaque DocumentSnapshot en objet Ride
+          _popularTrips =
+              querySnapshot.docs.map((doc) => Ride.fromFirestore(doc)).toList();
           _isLoadingTrips = false;
         });
       }
@@ -77,12 +93,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
     switch (index) {
       case 0:
+        // Déjà sur Home
         break;
       case 1:
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const SearchScreen()),
         ).then((_) {
+          // Réinitialiser _currentIndex si l'utilisateur revient à Home via le bouton retour de l'AppBar de SearchScreen
+          // ou gérer l'état global de navigation si vous utilisez un système de routing plus avancé
           setState(() {
             _currentIndex = 0;
           });
@@ -101,7 +120,15 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         break;
       case 4:
-        debugPrint('Navigation vers Profil');
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfileScreen()),
+        ).then((_) {
+          // Réinitialiser _currentIndex si l'utilisateur revient à Home via le bouton retour de l'AppBar de ProfileScreen
+          setState(() {
+            _currentIndex = 0;
+          });
+        });
         break;
     }
   }
@@ -208,7 +235,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.1),
+                        color: AppColors.accent
+                            .withValues(alpha: 0.1), // Rétabli withValues
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Text(
@@ -239,6 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       )
                     : SliverList(
                         delegate: SliverChildBuilderDelegate(
+                          // On passe l'objet Ride complet à _buildTripCard
                           (context, index) =>
                               _buildTripCard(_popularTrips[index]),
                           childCount: _popularTrips.length,
@@ -312,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withValues(alpha: 0.1), // Rétabli withValues
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -357,7 +386,7 @@ class _HomeScreenState extends State<HomeScreen> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withValues(alpha: 0.1), // Rétabli withValues
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 24),
@@ -373,20 +402,37 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildTripCard(DocumentSnapshot trip) {
-    Map<String, dynamic> data = trip.data() as Map<String, dynamic>;
+  // <<< MODIFIÉ : _buildTripCard accepte un objet Ride
+  Widget _buildTripCard(Ride ride) {
+    // Utilise les propriétés de l'objet Ride directement
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Départ: ${data['departureLocation'] ?? 'N/A'}'),
-            Text('Arrivée: ${data['arrivalLocation'] ?? 'N/A'}'),
-            Text('Date: ${data['date']?.toDate() ?? 'N/A'}'),
-            Text('Prix: ${data['price'] ?? 'N/A'} DT'),
-          ],
+      child: InkWell(
+        // Ajouté InkWell pour le onTap
+        onTap: () {
+          // Navigue vers TripDetailScreen
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TripDetailScreen(
+                tripId: ride.id,
+              ),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(8), // Rayon pour le InkWell
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Départ: ${ride.from}'),
+              Text('Arrivée: ${ride.to}'),
+              Text(
+                  'Date: ${DateFormat('dd MMM').format(ride.date)}'), // Utilise DateFormat pour la date
+              Text('Prix: ${ride.price.toInt()} DT'),
+            ],
+          ),
         ),
       ),
     );
@@ -403,7 +449,8 @@ class _HomeScreenState extends State<HomeScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
+                color: AppColors.primary
+                    .withValues(alpha: 0.1), // Rétabli withValues
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.search_off,

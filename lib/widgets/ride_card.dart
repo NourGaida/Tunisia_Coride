@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/ride.dart';
 import '../utils/constants.dart';
+import 'package:intl/intl.dart'; // Importez pour le formatage de date
 
 class RideCard extends StatelessWidget {
   final Ride ride;
@@ -35,23 +36,24 @@ class RideCard extends StatelessWidget {
                   // Avatar
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                    child: ride.driver.avatar.isEmpty
+                    backgroundColor: AppColors.primary
+                        .withValues(alpha: 0.1), // Rétabli withValues
+                    backgroundImage: ride.driver.avatar != null &&
+                            ride.driver.avatar!.isNotEmpty
+                        ? NetworkImage(ride.driver.avatar!) as ImageProvider
+                        : null,
+                    child: (ride.driver.avatar == null ||
+                            ride.driver.avatar!.isEmpty)
                         ? Text(
-                            ride.driver.name[0],
+                            ride.driver.name.isNotEmpty
+                                ? ride.driver.name[0].toUpperCase()
+                                : '?',
                             style: const TextStyle(
                               color: AppColors.primary,
                               fontWeight: FontWeight.w600,
                             ),
                           )
-                        : ClipOval(
-                            child: Image.asset(
-                              ride.driver.avatar,
-                              width: 40,
-                              height: 40,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
+                        : null,
                   ),
                   const SizedBox(width: 12),
 
@@ -69,7 +71,7 @@ class RideCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '${ride.driver.trips} trajets',
+                          '${ride.driver.trips} trajets', // Utilise le champ 'trips' du Driver
                           style: const TextStyle(
                             fontSize: 13,
                             color: Color(0xFF6B7280),
@@ -99,7 +101,8 @@ class RideCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          ride.driver.rating.toString(),
+                          ride.driver.rating
+                              .toStringAsFixed(1), // Affiche 1 décimale
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -168,7 +171,8 @@ class RideCard extends StatelessWidget {
                 children: [
                   _buildInfoChip(
                     icon: Icons.calendar_today,
-                    text: ride.date,
+                    text: DateFormat('dd MMM')
+                        .format(ride.date), // Utilise le DateTime
                   ),
                   const SizedBox(width: 12),
                   _buildInfoChip(
@@ -178,7 +182,8 @@ class RideCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   _buildInfoChip(
                     icon: Icons.person_outline,
-                    text: '${ride.seats} places',
+                    text:
+                        '${ride.availableSeats} places disponibles', // Affiche les places DISPONIBLES
                   ),
                 ],
               ),
@@ -212,25 +217,47 @@ class RideCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Availability badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'Disponible',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.accent,
+                  // Availability badge (conditionnel basé sur availableSeats)
+                  if (ride.availableSeats > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent
+                            .withValues(alpha: 0.1), // Rétabli withValues
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${ride.availableSeats} disponible${ride.availableSeats > 1 ? 's' : ''}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.error
+                            .withValues(alpha: 0.1), // Rétabli withValues
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'Complet',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.error,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ],
@@ -241,23 +268,31 @@ class RideCard extends StatelessWidget {
   }
 
   Widget _buildInfoChip({required IconData icon, required String text}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: 14,
-          color: const Color(0xFF6B7280),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Color(0xFF6B7280),
+    return Expanded(
+      // Expanded pour une meilleure mise en page si le texte est long
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: const Color(0xFF6B7280),
           ),
-        ),
-      ],
+          const SizedBox(width: 4),
+          Flexible(
+            // pour que le texte ne déborde pas
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF6B7280),
+              ),
+              overflow:
+                  TextOverflow.ellipsis, // Coupe le texte s'il est trop long
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../models/ride.dart';
 import '../widgets/ride_card.dart';
 import '../utils/constants.dart';
+import 'trip_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -15,71 +18,67 @@ class _SearchScreenState extends State<SearchScreen> {
   final _toController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   bool _hasSearched = false;
+  bool _isLoadingResults = false;
 
-  // Données mockées pour la démo (seront remplacées par Firebase)
-  final List<Ride> _mockResults = [
-    Ride(
-      id: '1',
-      driver: Driver(
-        name: 'Salim Ben Youssef',
-        avatar: '',
-        rating: 4.8,
-        trips: 45,
-        bio: 'Étudiant en IT',
-      ),
-      from: 'Sousse - Centre Ville',
-      to: 'Tunis - Lac 2',
-      date: '16 Nov',
-      time: '08:00',
-      price: 15,
-      seats: 3,
-      description: 'Trajet direct',
-    ),
-    Ride(
-      id: '2',
-      driver: Driver(
-        name: 'Lilia Ben Yahia',
-        avatar: '',
-        rating: 4.9,
-        trips: 156,
-        bio: 'Employée',
-      ),
-      from: 'Ariana - Centre',
-      to: 'Tunis - Centre Ville',
-      date: '15 Nov',
-      time: '07:30',
-      price: 5,
-      seats: 2,
-      description: 'Trajet quotidien',
-    ),
-    Ride(
-      id: '3',
-      driver: Driver(
-        name: 'Salim Ben Youssef',
-        avatar: '',
-        rating: 4.8,
-        trips: 45,
-        bio: 'Étudiant en IT',
-      ),
-      from: 'Tunis - Gare',
-      to: 'Sousse - Port',
-      date: '17 Nov',
-      time: '17:00',
-      price: 18,
-      seats: 4,
-      description: 'Retour Sousse',
-    ),
-  ];
-
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<Ride> _searchResults = [];
 
-  void _performSearch() {
+  void _performSearch() async {
+    final from = _fromController.text.trim();
+    final to = _toController.text.trim();
+
+    if (from.isEmpty && to.isEmpty) {
+      _showSnackBar('Veuillez entrer une ville de départ ou d\'arrivée.');
+      return;
+    }
+
     setState(() {
       _hasSearched = true;
-      // TODO: Implémenter la vraie recherche avec Firebase
-      // Pour l'instant, retourner tous les résultats mockés
-      _searchResults = _mockResults;
+      _isLoadingResults = true;
+      _searchResults = [];
     });
+
+    try {
+      Query query = _firestore.collection('trips');
+
+      if (from.isNotEmpty) {
+        query = query.where('departureLocation', isEqualTo: from);
+      }
+      if (to.isNotEmpty) {
+        query = query.where('arrivalLocation', isEqualTo: to);
+      }
+
+      DateTime startOfDay = DateTime(
+          _selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0, 0);
+      DateTime endOfDay = DateTime(_selectedDate.year, _selectedDate.month,
+          _selectedDate.day, 23, 59, 59);
+
+      query = query
+          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
+          .where('status',
+              isEqualTo: 'upcoming') // N'afficher que les trajets 'upcoming'
+          .orderBy('date', descending: false);
+
+      final QuerySnapshot snapshot = await query.get();
+
+      if (mounted) {
+        setState(() {
+          _searchResults =
+              snapshot.docs.map((doc) => Ride.fromFirestore(doc)).toList();
+          _isLoadingResults = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur lors de la recherche des trajets: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingResults = false;
+        });
+        _showSnackBar('Erreur lors de la recherche. Veuillez réessayer.',
+            isError: true);
+      }
+    }
   }
 
   Future<void> _selectDate() async {
@@ -104,26 +103,30 @@ class _SearchScreenState extends State<SearchScreen> {
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
+        if (_hasSearched) {
+          _performSearch();
+        }
       });
     }
   }
 
-  String _formatDate(DateTime date) {
-    final months = [
-      'Jan',
-      'Fév',
-      'Mar',
-      'Avr',
-      'Mai',
-      'Juin',
-      'Juil',
-      'Août',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Déc'
-    ];
-    return '${date.day}/${date.month}/${date.year}';
+  String _formatDateDisplay(DateTime date) {
+    return DateFormat('dd/MM/yyyy').format(date);
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.error : AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -149,14 +152,14 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
       body: Column(
         children: [
-          // Formulaire de recherche
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: Colors.black
+                      .withValues(alpha: 0.05), // Rétabli withValues
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
@@ -164,27 +167,20 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
             child: Column(
               children: [
-                // Départ
                 _buildSearchField(
                   controller: _fromController,
                   icon: Icons.location_on,
                   iconColor: AppColors.primary,
                   hint: 'Départ (ex: Tunis)',
                 ),
-
                 const SizedBox(height: 12),
-
-                // Arrivée
                 _buildSearchField(
                   controller: _toController,
                   icon: Icons.location_on,
                   iconColor: AppColors.accent,
                   hint: 'Arrivée (ex: Sousse)',
                 ),
-
                 const SizedBox(height: 12),
-
-                // Date
                 InkWell(
                   onTap: _selectDate,
                   child: Container(
@@ -208,7 +204,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          _formatDate(_selectedDate),
+                          _formatDateDisplay(_selectedDate),
                           style: const TextStyle(
                             fontSize: 15,
                             color: Color(0xFF111827),
@@ -218,14 +214,11 @@ class _SearchScreenState extends State<SearchScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // Bouton Rechercher
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _performSearch,
+                    onPressed: _isLoadingResults ? null : _performSearch,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.accent,
                       foregroundColor: Colors.white,
@@ -235,33 +228,42 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                       elevation: 0,
                     ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.search, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Rechercher un trajet',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                    child: _isLoadingResults
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.search, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Rechercher un trajet',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ],
             ),
           ),
-
-          // Résultats
           Expanded(
-            child: _hasSearched
-                ? _searchResults.isEmpty
-                    ? _buildEmptyResults()
-                    : _buildResultsList()
-                : _buildInitialState(),
+            child: _isLoadingResults
+                ? const Center(child: CircularProgressIndicator())
+                : _hasSearched
+                    ? _searchResults.isEmpty
+                        ? _buildEmptyResults()
+                        : _buildResultsList()
+                    : _buildInitialState(),
           ),
         ],
       ),
@@ -364,7 +366,6 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _buildResultsList() {
     return Column(
       children: [
-        // Header avec nombre de résultats
         Container(
           padding: const EdgeInsets.all(20),
           color: const Color(0xFFF9FAFB),
@@ -389,8 +390,6 @@ class _SearchScreenState extends State<SearchScreen> {
             ],
           ),
         ),
-
-        // Liste des trajets
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.all(20),
@@ -398,10 +397,16 @@ class _SearchScreenState extends State<SearchScreen> {
             separatorBuilder: (context, index) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               return RideCard(
-                ride: _searchResults[index],
+                ride: _searchResults[index], // Passe l'objet Ride complet
                 onTap: () {
-                  // TODO: Navigation vers détail du trajet
-                  debugPrint('Trajet sélectionné: ${_searchResults[index].id}');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => TripDetailScreen(
+                        tripId: _searchResults[index].id, // Passe le tripId
+                      ),
+                    ),
+                  );
                 },
               );
             },

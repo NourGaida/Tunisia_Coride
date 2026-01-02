@@ -65,7 +65,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _goToAuth() {
-    // TODO: Navigation vers AuthScreen
     if (mounted) {
       Navigator.pushReplacement(
         context,

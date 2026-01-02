@@ -14,19 +14,19 @@ class BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black..withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
+        // ❌ SUPPRIMÉ: boxShadow pour enlever l'ombre
+        border: Border(
+          top: BorderSide(
+            color: Color(0xFFE5E7EB), // Bordure subtile en haut
+            width: 1,
           ),
-        ],
+        ),
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
             children: [
               _navItem(
@@ -66,7 +66,7 @@ class BottomNav extends StatelessWidget {
     );
   }
 
-  /// 🔑 Each item gets equal width
+  /// 🔹 Each item gets equal width
   Widget _navItem({
     required IconData icon,
     required IconData activeIcon,
@@ -86,14 +86,14 @@ class BottomNav extends StatelessWidget {
             children: [
               Icon(
                 isActive ? activeIcon : icon,
-                size: 22,
+                size: 24,
                 color: isActive ? AppColors.primary : const Color(0xFF9CA3AF),
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis, // 🔑 prevents overflow
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
