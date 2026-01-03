@@ -20,12 +20,14 @@ class _MyTripsScreenState extends State<MyTripsScreen>
 
   late TabController _tabController;
 
+  // On garde vos statuts existants et on ajoute la logique pour les demandes à part
   final List<String> _tripStatuses = ['upcoming', 'completed'];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tripStatuses.length, vsync: this);
+    // 3 Onglets : À venir, Historique, Demandes
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -38,236 +40,416 @@ class _MyTripsScreenState extends State<MyTripsScreen>
   Widget build(BuildContext context) {
     final currentUser = _auth.currentUser;
 
+    if (currentUser == null) {
+      return const Scaffold(
+        body: Center(child: Text("Veuillez vous connecter")),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: const Text(
-          'Mes trajets',
+          'Mes Trajets',
           style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 18,
+            color: Color(0xFF111827),
+            fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
         ),
-        centerTitle: false,
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
+          unselectedLabelColor: const Color(0xFF6B7280),
           indicatorColor: AppColors.primary,
-          labelStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: 14,
-          ),
+          indicatorWeight: 2,
           tabs: const [
             Tab(text: 'À venir'),
-            Tab(text: 'Terminés'),
+            Tab(text: 'Historique'),
+            // Nouvel onglet avec potentiellement un Badge pour les notifs (optionnel)
+            Tab(
+                child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Demandes'),
+                SizedBox(width: 4),
+                Icon(Icons.notifications_active_outlined, size: 16),
+              ],
+            )),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Utilise currentUser!.uid, affirmant qu'il n'est pas null
-          _buildTripsList(currentUser!.uid, _tripStatuses[0]),
-          _buildTripsList(currentUser!.uid, _tripStatuses[1]),
+          _buildTripList('upcoming', currentUser.uid),
+          _buildTripList('completed', currentUser.uid),
+          _buildIncomingRequests(currentUser.uid), // <--- NOUVELLE FONCTION
         ],
       ),
     );
   }
 
-  Widget _buildTripsList(String userId, String status) {
-    final Query query;
-    if (status == 'upcoming') {
-      query = _firestore
-          .collection('trips')
-          .where('driverId', isEqualTo: userId)
-          .where('status', isEqualTo: status)
-          .where('date',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now()))
-          .orderBy('date', descending: false);
-    } else if (status == 'completed') {
-      query = _firestore
-          .collection('trips')
-          .where('driverId', isEqualTo: userId)
-          .where('status', isEqualTo: status)
-          .where('date', isLessThan: Timestamp.fromDate(DateTime.now()))
-          .orderBy('date', descending: true);
-    } else {
-      query = _firestore
-          .collection('trips')
-          .where('driverId', isEqualTo: userId)
-          .where('status', isEqualTo: status)
-          .orderBy('date', descending: true);
-    }
-
+  // ---------------------------------------------------------------------------
+  // VOS LISTES EXISTANTES (À venir / Historique)
+  // ---------------------------------------------------------------------------
+  Widget _buildTripList(String status, String uid) {
     return StreamBuilder<QuerySnapshot>(
-      stream: query.snapshots(),
+      stream: _firestore
+          .collection('trips')
+          .where('driverId', isEqualTo: uid)
+          .where('status', isEqualTo: status)
+          .orderBy('date',
+              descending: status == 'completed') // Tri selon le contexte
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
-          debugPrint('Erreur StreamBuilder pour $status: ${snapshot.error}');
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 60,
-                  color: AppColors.error,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Erreur de chargement des trajets $status',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => setState(() {}),
-                  child: const Text('Réessayer'),
-                ),
-              ],
-            ),
-          );
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return _buildEmptyState(status);
         }
 
-        final trips = snapshot.data!.docs;
-
-        return ListView.separated(
+        return ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: trips.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 12),
+          itemCount: snapshot.data!.docs.length,
           itemBuilder: (context, index) {
-            final trip = trips[index];
-            final data = trip.data() as Map<String, dynamic>;
-            return _buildTripCard(trip.id, data, status);
+            final doc = snapshot.data!.docs[index];
+            final data = doc.data() as Map<String, dynamic>;
+            final date = (data['date'] as Timestamp).toDate();
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFE5E7EB)),
+              ),
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TripDetailScreen(tripId: doc.id),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            DateFormat('EEE d MMM, HH:mm', 'fr_FR')
+                                .format(date),
+                            style: const TextStyle(
+                              color: Color(0xFF6B7280),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: status == 'upcoming'
+                                  ? const Color(0xFFECFDF5)
+                                  : const Color(0xFFF3F4F6),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              status == 'upcoming' ? 'En ligne' : 'Terminé',
+                              style: TextStyle(
+                                color: status == 'upcoming'
+                                    ? const Color(0xFF059669)
+                                    : const Color(0xFF4B5563),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Icon(Icons.circle_outlined,
+                              size: 16, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              data['departureLocation'] ?? 'Départ',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 7),
+                        child: Container(
+                          height: 20,
+                          width: 2,
+                          color: const Color(0xFFE5E7EB),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on,
+                              size: 16, color: AppColors.accent),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              data['arrivalLocation'] ?? 'Arrivée',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.airline_seat_recline_normal,
+                                  size: 16, color: Color(0xFF6B7280)),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${data['availableSeats']}/${data['seats']} places',
+                                style: const TextStyle(
+                                  color: Color(0xFF6B7280),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '${data['price']} TND',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
           },
         );
       },
     );
   }
 
-  Widget _buildTripCard(
-      String tripId, Map<String, dynamic> data, String status) {
-    final departureLocation = data['departureLocation'] ?? 'N/A';
-    final arrivalLocation = data['arrivalLocation'] ?? 'N/A';
-    final date = (data['date'] as Timestamp?)?.toDate();
-    final String? timeString = data['time'] as String?;
-    final price = data['price'] ?? 0;
-    final availableSeats = data['availableSeats'] ?? 0;
-    final totalSeats = data['totalSeats'] ?? availableSeats;
-    final bookedSeats = totalSeats - availableSeats;
+  // ---------------------------------------------------------------------------
+  // NOUVELLE FONCTION : GESTION DES DEMANDES REÇUES
+  // ---------------------------------------------------------------------------
+  Widget _buildIncomingRequests(String driverId) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('bookings')
+          .where('driverId', isEqualTo: driverId)
+          .where('status',
+              isEqualTo: 'pending') // Seulement les demandes en attente
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
-      ),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => TripDetailScreen(
-                tripId: tripId, // Passe le tripId
-              ),
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_circle_outline,
+                      size: 50, color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "Aucune demande en attente",
+                  style: TextStyle(color: Colors.grey, fontSize: 16),
+                ),
+              ],
             ),
           );
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
+        }
+
+        return ListView.separated(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Badge de statut
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildStatusBadge(status),
-                  Text(
-                    '${price.toInt()} TND',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
+          itemCount: snapshot.data!.docs.length,
+          separatorBuilder: (ctx, i) => const SizedBox(height: 16),
+          itemBuilder: (context, index) {
+            final doc = snapshot.data!.docs[index];
+            final data = doc.data() as Map<String, dynamic>;
+            final tripDetails = data['tripDetails'] ?? {};
+
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  )
                 ],
               ),
-
-              const SizedBox(height: 16),
-
-              // Itinéraire
-              Row(
+              child: Column(
                 children: [
-                  Column(
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      Container(
-                        width: 2,
-                        height: 40,
-                        color: AppColors.textMuted,
-                      ),
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: AppColors.accent,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.accent, width: 2),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  // En-tête : Info trajet
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(16)),
+                    ),
+                    child: Row(
                       children: [
-                        Text(
-                          departureLocation,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
+                        const Icon(Icons.directions_car,
+                            size: 16, color: AppColors.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            "${tripDetails['from'] ?? '?'} → ${tripDetails['to'] ?? '?'}",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: Color(0xFF374151),
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(height: 40),
                         Text(
-                          arrivalLocation,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
+                          _formatDate(tripDetails['date']),
+                          style:
+                              const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Corps : Info Passager
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor:
+                              AppColors.accent.withValues(alpha: 0.1),
+                          backgroundImage: data['passengerAvatar'] != null
+                              ? NetworkImage(data['passengerAvatar'])
+                              : null,
+                          child: data['passengerAvatar'] == null
+                              ? const Icon(Icons.person,
+                                  color: AppColors.accent)
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                data['passengerName'] ?? 'Utilisateur',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.airline_seat_recline_normal,
+                                      size: 14, color: Colors.grey.shade600),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    "1 place demandée",
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const Divider(height: 1),
+
+                  // Pied : Actions (Accepter / Refuser)
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () =>
+                                _handleRequest(doc.id, false, null),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.red),
+                              foregroundColor: Colors.red,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text("Refuser"),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () =>
+                                _handleRequest(doc.id, true, data['tripId']),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.success,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text("Accepter",
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],
@@ -275,160 +457,87 @@ class _MyTripsScreenState extends State<MyTripsScreen>
                   ),
                 ],
               ),
-
-              const SizedBox(height: 16),
-
-              // Informations
-              Row(
-                children: [
-                  _buildInfoChip(
-                    Icons.calendar_today,
-                    date != null ? DateFormat('dd MMM').format(date) : 'N/A',
-                  ),
-                  const SizedBox(width: 12),
-                  _buildInfoChip(
-                    Icons.access_time,
-                    timeString ?? 'N/A',
-                  ),
-                  const SizedBox(width: 12),
-                  _buildInfoChip(
-                    Icons.person_outline,
-                    '$bookedSeats/$totalSeats réservés',
-                  ),
-                ],
-              ),
-
-              // Actions pour trajets à venir (boutons Modifier/Annuler)
-              if (status == 'upcoming') ...[
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          // TODO: Modifier le trajet
-                          debugPrint('Modifier trajet: $tripId');
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.primary),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text('Modifier'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          // La fonctionnalité d'annulation est désactivée pour ce projet
-                          debugPrint(
-                              'Fonctionnalité Annuler désactivée pour ce projet de classe.');
-                          // Si réactivée, appeler _showCancelDialog(tripId);
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.error),
-                          foregroundColor: AppColors.error,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text('Annuler'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
-  Widget _buildStatusBadge(String status) {
-    Color bgColor;
-    Color textColor;
-    String label;
-
-    switch (status) {
-      case 'upcoming':
-        bgColor = AppColors.accent.withValues(alpha: 0.1);
-        textColor = AppColors.accent;
-        label = 'À venir';
-        break;
-      case 'completed':
-        bgColor = AppColors.success.withValues(alpha: 0.1);
-        textColor = AppColors.success;
-        label = 'Terminé';
-        break;
-      default: // Gère tout autre statut non prévu explicitement
-        bgColor = Colors.grey.withValues(alpha: 0.1);
-        textColor = Colors.grey;
-        label = 'Inconnu';
+  // Helper pour formater la date
+  String _formatDate(dynamic dateData) {
+    if (dateData == null) return "";
+    if (dateData is Timestamp) {
+      return DateFormat('dd MMM, HH:mm', 'fr_FR').format(dateData.toDate());
     }
+    return "";
+  }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: textColor,
-        ),
+  // ---------------------------------------------------------------------------
+  // LOGIQUE DE TRAITEMENT (Accepter / Refuser)
+  // ---------------------------------------------------------------------------
+  Future<void> _handleRequest(
+      String bookingId, bool isAccepted, String? tripId) async {
+    try {
+      if (isAccepted && tripId != null) {
+        // 1. Vérifier la disponibilité
+        final tripRef = _firestore.collection('trips').doc(tripId);
+        final tripSnapshot = await tripRef.get();
+
+        if (!tripSnapshot.exists) {
+          _showSnack("Erreur : Trajet introuvable", isError: true);
+          return;
+        }
+
+        final currentSeats = tripSnapshot.data()?['availableSeats'] ?? 0;
+        if (currentSeats <= 0) {
+          _showSnack("Plus de places disponibles !", isError: true);
+          return;
+        }
+
+        await _firestore.collection('bookings').doc(bookingId).update({
+          'status': 'confirmed',
+        });
+
+        // Décrémenter les places
+        await tripRef.update({
+          'availableSeats': FieldValue.increment(-1),
+        });
+
+        _showSnack("Demande acceptée avec succès !", isError: false);
+      } else {
+        // REFUSER
+        await _firestore.collection('bookings').doc(bookingId).update({
+          'status': 'rejected',
+        });
+        _showSnack("Demande refusée.", isError: false);
+      }
+    } catch (e) {
+      debugPrint("Erreur handleRequest: $e");
+      _showSnack("Une erreur est survenue", isError: true);
+    }
+  }
+
+  void _showSnack(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  Widget _buildInfoChip(IconData icon, String text) {
-    return Expanded(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 14,
-            color: AppColors.textSecondary,
-          ),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
+  // ---------------------------------------------------------------------------
+  // WIDGET EMPTY STATE (Votre code existant)
+  // ---------------------------------------------------------------------------
   Widget _buildEmptyState(String status) {
-    String message;
-    IconData icon;
-
-    switch (status) {
-      case 'upcoming':
-        message = 'Aucun trajet à venir\nPubliez votre premier trajet !';
-        icon = Icons.calendar_today;
-        break;
-      case 'completed':
-        message = 'Aucun trajet terminé';
-        icon = Icons.check_circle_outline;
-        break;
-      default: // Gère tout autre statut non prévu
-        message = 'Aucun trajet';
-        icon = Icons.directions_car_outlined;
-    }
+    final isUpcoming = status == 'upcoming';
+    final icon = isUpcoming ? Icons.directions_car_outlined : Icons.history;
+    final message = isUpcoming
+        ? 'Vous n\'avez pas encore publié de trajet à venir'
+        : 'Aucun trajet terminé dans l\'historique';
 
     return Center(
       child: Padding(
@@ -459,7 +568,7 @@ class _MyTripsScreenState extends State<MyTripsScreen>
               ),
               textAlign: TextAlign.center,
             ),
-            if (status == 'upcoming') ...[
+            if (isUpcoming) ...[
               const SizedBox(height: 32),
               ElevatedButton.icon(
                 onPressed: () {

@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart'; // Importez pour Timestamp
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Ride {
   final String id;
@@ -6,13 +6,12 @@ class Ride {
   final String from;
   final String to;
   final DateTime date;
-  final String time; // Représentation de l'heure comme "HH:MM"
+  final String time;
   final double price;
-  final int seats; // Nombre total de sièges offerts
-  final int availableSeats; // Nombre de sièges encore disponibles
+  final int seats; // Nombre total de sièges
+  final int availableSeats; // Places disponibles
   final String description;
-  final String
-      status; // Statut du trajet (e.g., 'upcoming', 'completed', 'cancelled')
+  final String status;
 
   Ride({
     required this.id,
@@ -28,27 +27,22 @@ class Ride {
     required this.status,
   });
 
-  // Constructeur factory pour créer un objet Ride à partir d'un DocumentSnapshot Firestore
   factory Ride.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-
-    // Convertir le Timestamp Firestore en DateTime
     final DateTime tripDateTime = (data['date'] as Timestamp).toDate();
 
     return Ride(
       id: doc.id,
-      driver: Driver.fromFirestore(
-          data), // Crée le Driver à partir des données du trajet
+      driver: Driver.fromFirestore(data),
       from: data['departureLocation'] as String? ?? 'N/A',
       to: data['arrivalLocation'] as String? ?? 'N/A',
       date: tripDateTime,
-      // Pour l'heure, nous la formatons à partir du DateTime.
-      // Si 'time' est stocké comme une string séparée dans Firestore, utilisez : data['time'] as String? ?? '',
       time:
           '${tripDateTime.hour.toString().padLeft(2, '0')}:${tripDateTime.minute.toString().padLeft(2, '0')}',
       price: (data['price'] as num?)?.toDouble() ?? 0.0,
-      seats: (data['totalSeats'] as num?)?.toInt() ??
-          0, // Assurez-vous d'avoir 'totalSeats' en BDD
+      seats: (data['seats'] as num?)?.toInt() ??
+          (data['availableSeats'] as num?)?.toInt() ??
+          0,
       availableSeats: (data['availableSeats'] as num?)?.toInt() ?? 0,
       description: data['description'] as String? ?? '',
       status: data['status'] as String? ?? 'active',
@@ -57,11 +51,11 @@ class Ride {
 }
 
 class Driver {
-  final String id; // L'UID Firebase du conducteur
+  final String id;
   final String name;
-  final String? avatar; // URL de l'avatar (peut être null)
+  final String? avatar;
   final double rating;
-  final int trips; // Nombre de trajets effectués par le conducteur
+  final int trips;
   final String bio;
 
   Driver({
@@ -73,19 +67,11 @@ class Driver {
     required this.bio,
   });
 
-  // Constructeur factory pour créer un objet Driver à partir des données d'un trajet (rideData)
-  // Note: Pour une application complète, rating, trips, bio et avatar devraient
-  // idéalement être récupérés depuis un document 'users' séparé via 'driverId'.
-  // Ici, nous prenons des valeurs par défaut ou des valeurs si elles sont passées dans rideData.
   factory Driver.fromFirestore(Map<String, dynamic> rideData) {
     return Driver(
       id: rideData['driverId'] as String? ?? '',
       name: rideData['driverName'] as String? ?? 'Conducteur Inconnu',
-      // Ces champs sont souvent stockés dans le document utilisateur du driver,
-      // pas directement dans le document du trajet pour éviter la duplication.
-      // Pour le moment, on utilise des valeurs statiques/par défaut.
-      avatar: rideData['driverAvatarUrl']
-          as String?, // Si vous le stockez dans le trajet
+      avatar: rideData['driverAvatarUrl'] as String?,
       rating: (rideData['driverRating'] as num?)?.toDouble() ?? 0.0,
       trips: (rideData['driverTrips'] as num?)?.toInt() ?? 0,
       bio: rideData['driverBio'] as String? ?? '',

@@ -78,6 +78,232 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     }
   }
 
+  Future<void> _bookTrip(String driverId, double price) async {
+    final currentUser = _auth.currentUser!;
+
+    setState(() => _isBooking = true);
+
+    try {
+      //Récupérer les données utilisateur DEPUIS FIRESTORE
+      final userDoc =
+          await _firestore.collection('users').doc(currentUser.uid).get();
+
+      if (!userDoc.exists) {
+        throw Exception('Profil utilisateur introuvable');
+      }
+
+      final userData = userDoc.data()!;
+
+      // Récupérer le nom DEPUIS FIRESTORE (pas depuis Auth)
+      final userName = userData['name'] as String? ?? 'Utilisateur';
+      final userAvatar = userData['avatarUrl'] as String?;
+
+      // Récupérer les infos du conducteur
+      final driverDoc =
+          await _firestore.collection('users').doc(driverId).get();
+      final driverData = driverDoc.exists ? driverDoc.data() : null;
+      final driverName = driverData?['name'] as String? ??
+          _tripData!['driverName'] as String? ??
+          'Conducteur Inconnu';
+      final driverAvatar = driverData?['avatarUrl'] as String?;
+
+      debugPrint('🔍 Conducteur: $driverName');
+
+      // ÉTAPE 4 : TRANSACTION ATOMIQUE - UNE SEULE RÉSERVATION
+      await _firestore.runTransaction((transaction) async {
+        final tripRef = _firestore.collection('trips').doc(widget.tripId);
+        final tripSnapshot = await transaction.get(tripRef);
+
+        if (!tripSnapshot.exists) {
+          throw Exception('Trajet introuvable');
+        }
+
+        final tripData = tripSnapshot.data()!;
+        final currentSeats = tripData['availableSeats'] as int? ?? 0;
+
+        if (currentSeats <= 0) {
+          throw Exception('Plus de places disponibles');
+        }
+
+        //  CRÉER UNE SEULE RÉSERVATION AVEC TOUTES LES INFOS
+        final bookingRef = _firestore.collection('bookings').doc();
+        transaction.set(bookingRef, {
+          // Info passager
+          'tripId': widget.tripId,
+          'passengerId': currentUser.uid,
+          'passengerName': userName,
+          'passengerAvatar': userAvatar,
+          'passengerEmail': userData['email'] ?? currentUser.email,
+
+          // Info conducteur (RÉCUPÉRÉES DEPUIS FIRESTORE)
+          'driverId': driverId,
+          'driverName': driverName,
+          'driverAvatar': driverAvatar,
+
+          // Statut et places
+          'status': 'pending',
+          'seatsBooked': 1,
+          'totalPrice': price,
+          'createdAt': FieldValue.serverTimestamp(),
+
+          // Détails du trajet avec prix
+          'tripDetails': {
+            'from': tripData['departureLocation'],
+            'to': tripData['arrivalLocation'],
+            'date': tripData['date'],
+            'time': tripData['time'] ??
+                DateFormat('HH:mm')
+                    .format((tripData['date'] as Timestamp).toDate()),
+            'price': price, // Prix sauvegardé
+          },
+        });
+
+        debugPrint(' Réservation créée : ${bookingRef.id}');
+
+        // La décrémentation se fera lors de la CONFIRMATION par le conducteur
+        transaction.update(tripRef, {
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      });
+
+      if (!mounted) return;
+
+      await _openChat(driverId, userName, isBooking: true);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Réservation effectuée ! 🎉'),
+          backgroundColor: AppColors.success,
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      await _fetchTripDetails();
+    } on Exception catch (e) {
+      debugPrint('❌ Erreur de réservation: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur inattendue: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors de la réservation'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isBooking = false);
+      }
+    }
+  }
+
+  Future<void> _openChat(String driverId, String userName,
+      {required bool isBooking}) async {
+    final currentUser = _auth.currentUser!;
+
+    try {
+      final conversationId = _generateConversationId(currentUser.uid, driverId);
+
+      final conversationDoc = await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .get();
+
+      if (!conversationDoc.exists) {
+        await _firestore.collection('conversations').doc(conversationId).set({
+          'participants': [currentUser.uid, driverId],
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastMessage': '',
+          'lastMessageTime': FieldValue.serverTimestamp(),
+          'lastMessageSenderId': '',
+          'unreadCount_${currentUser.uid}': 0,
+          'unreadCount_$driverId': 0,
+          'tripInfo': {
+            'tripId': widget.tripId,
+            'from': _tripData!['departureLocation'],
+            'to': _tripData!['arrivalLocation'],
+          },
+        });
+      }
+
+      if (isBooking) {
+        final messages = [
+          "Bonjour ! Je souhaite réserver une place pour ce trajet. 🚗",
+          "Salut ! Je suis intéressé(e) par ce trajet. Pouvons-nous discuter des détails ? 😊",
+          "Hello ! J'aimerais réserver une place. Êtes-vous disponible pour en discuter ? 🙋",
+          "Bonjour ! Ce trajet m'intéresse beaucoup. Je souhaite réserver ! ✨",
+        ];
+        final randomMessage = (messages..shuffle()).first;
+
+        await _firestore
+            .collection('conversations')
+            .doc(conversationId)
+            .collection('messages')
+            .add({
+          'senderId': currentUser.uid,
+          'receiverId': driverId,
+          'text': randomMessage,
+          'timestamp': FieldValue.serverTimestamp(),
+          'isRead': false,
+        });
+
+        await _firestore
+            .collection('conversations')
+            .doc(conversationId)
+            .update({
+          'lastMessage': randomMessage,
+          'lastMessageTime': FieldValue.serverTimestamp(),
+          'lastMessageSenderId': currentUser.uid,
+          'unreadCount_$driverId': FieldValue.increment(1),
+        });
+      }
+
+      final driverDoc =
+          await _firestore.collection('users').doc(driverId).get();
+      final driverData = driverDoc.data();
+      final driverName = driverData?['name'] ?? 'Conducteur';
+      final driverAvatar = driverData?['avatarUrl'] as String?;
+
+      if (!mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatScreen(
+            conversationId: conversationId,
+            otherUserId: driverId,
+            otherUserName: driverName,
+            otherUserAvatar: driverAvatar,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Erreur lors de l\'ouverture du chat: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors de l\'ouverture du chat'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  String _generateConversationId(String userId1, String userId2) {
+    final sortedIds = [userId1, userId2]..sort();
+    return '${sortedIds[0]}_${sortedIds[1]}';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -201,6 +427,10 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   Widget _buildDriverCard(
       String name, String? avatarUrl, double rating, int trips, String bio) {
+    // Récupérer le sexe du conducteur
+    final gender = _driverData?['gender'] as String?;
+    final hasLicense = _driverData?['hasDriverLicense'] as bool? ?? false;
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
@@ -234,13 +464,27 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    if (gender != null && gender != 'Non spécifié') ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        gender == 'Homme' ? Icons.male : Icons.female,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Row(
@@ -263,6 +507,38 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                         color: AppColors.textSecondary,
                       ),
                     ),
+                    if (hasLicense) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.verified,
+                              size: 12,
+                              color: AppColors.success,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Permis',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.success,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -549,7 +825,16 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       children: [
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () => _openChat(driverId, isBooking: false),
+            onPressed: () async {
+              final userDoc = await _firestore
+                  .collection('users')
+                  .doc(_auth.currentUser!.uid)
+                  .get();
+              final userName = userDoc.data()?['name'] ?? 'Utilisateur';
+
+              if (!mounted) return;
+              _openChat(driverId, userName, isBooking: false);
+            },
             icon: const Icon(Icons.chat_bubble_outline, size: 20),
             label: const Text('Message'),
             style: OutlinedButton.styleFrom(
@@ -609,162 +894,5 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         ),
       ],
     );
-  }
-
-  Future<void> _openChat(String driverId, {required bool isBooking}) async {
-    final currentUser = _auth.currentUser!;
-
-    try {
-      final conversationId = _generateConversationId(currentUser.uid, driverId);
-
-      final conversationDoc = await _firestore
-          .collection('conversations')
-          .doc(conversationId)
-          .get();
-
-      if (!conversationDoc.exists) {
-        await _firestore.collection('conversations').doc(conversationId).set({
-          'participants': [currentUser.uid, driverId],
-          'createdAt': FieldValue.serverTimestamp(),
-          'lastMessage': '',
-          'lastMessageTime': FieldValue.serverTimestamp(),
-          'lastMessageSenderId': '',
-          'unreadCount_${currentUser.uid}': 0,
-          'unreadCount_$driverId': 0,
-          'tripInfo': {
-            'tripId': widget.tripId,
-            'from': _tripData!['departureLocation'],
-            'to': _tripData!['arrivalLocation'],
-          },
-        });
-      }
-
-      if (isBooking) {
-        final messages = [
-          "Bonjour ! Je souhaite réserver une place pour ce trajet. 🚗",
-          "Salut ! Je suis intéressé(e) par ce trajet. Pouvons-nous discuter des détails ? 😊",
-          "Hello ! J'aimerais réserver une place. Êtes-vous disponible pour en discuter ? 🙋",
-          "Bonjour ! Ce trajet m'intéresse beaucoup. Je souhaite réserver ! ✨",
-        ];
-        final randomMessage = (messages..shuffle()).first;
-
-        await _firestore
-            .collection('conversations')
-            .doc(conversationId)
-            .collection('messages')
-            .add({
-          'senderId': currentUser.uid,
-          'receiverId': driverId,
-          'text': randomMessage,
-          'timestamp': FieldValue.serverTimestamp(),
-          'isRead': false,
-        });
-
-        await _firestore
-            .collection('conversations')
-            .doc(conversationId)
-            .update({
-          'lastMessage': randomMessage,
-          'lastMessageTime': FieldValue.serverTimestamp(),
-          'lastMessageSenderId': currentUser.uid,
-          'unreadCount_$driverId': FieldValue.increment(1),
-        });
-      }
-
-      final driverDoc =
-          await _firestore.collection('users').doc(driverId).get();
-      final driverData = driverDoc.data();
-      final driverName = driverData?['name'] ?? 'Conducteur';
-      final driverAvatar = driverData?['avatarUrl'] as String?;
-
-      if (!mounted) return;
-
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ChatScreen(
-            conversationId: conversationId,
-            otherUserId: driverId,
-            otherUserName: driverName,
-            otherUserAvatar: driverAvatar,
-          ),
-        ),
-      );
-    } catch (e) {
-      debugPrint('Erreur lors de l\'ouverture du chat: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erreur lors de l\'ouverture du chat'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _bookTrip(String driverId, double price) async {
-    final currentUser = _auth.currentUser!;
-
-    setState(() => _isBooking = true);
-
-    try {
-      final userDoc =
-          await _firestore.collection('users').doc(currentUser.uid).get();
-      final userData = userDoc.data();
-      final userName =
-          userData?['name'] ?? currentUser.email?.split('@')[0] ?? 'Passager';
-
-      await _firestore.collection('bookings').add({
-        'tripId': widget.tripId,
-        'passengerId': currentUser.uid,
-        'passengerName': userName,
-        'driverId': driverId,
-        'status': 'pending',
-        'seatsBooked': 1,
-        'totalPrice': price,
-        'createdAt': FieldValue.serverTimestamp(),
-        'tripDetails': {
-          'from': _tripData!['departureLocation'],
-          'to': _tripData!['arrivalLocation'],
-          'date': _tripData!['date'],
-        },
-      });
-
-      await _firestore.collection('trips').doc(widget.tripId).update({
-        'availableSeats': FieldValue.increment(-1),
-      });
-
-      if (!mounted) return;
-
-      await _openChat(driverId, isBooking: true);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Réservation effectuée ! 🎉'),
-          backgroundColor: AppColors.success,
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      debugPrint('Erreur lors de la réservation: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erreur lors de la réservation'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isBooking = false);
-      }
-    }
-  }
-
-  String _generateConversationId(String userId1, String userId2) {
-    final sortedIds = [userId1, userId2]..sort();
-    return '${sortedIds[0]}_${sortedIds[1]}';
   }
 }

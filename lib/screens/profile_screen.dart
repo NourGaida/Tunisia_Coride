@@ -5,9 +5,11 @@ import '../utils/constants.dart';
 import '../widgets/bottom_nav.dart';
 import 'auth_screen.dart';
 import 'my_trips_screen.dart';
+import 'my_bookings_screen.dart';
 import 'search_screen.dart';
 import 'publish_ride_screen.dart';
 import 'messages_screen.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -17,13 +19,18 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  int _currentIndex = 4; // Profile tab
+  int _currentIndex = 4;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   User? _currentUser;
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
+
+  // ✅ Données dynamiques
+  int _totalTrips = 0;
+  int _totalPassengers = 0;
+  double _averageRating = 0.0;
 
   @override
   void initState() {
@@ -36,11 +43,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (_currentUser != null) {
       try {
+        // 1. Charger les données utilisateur
         final doc =
             await _firestore.collection('users').doc(_currentUser!.uid).get();
+
         if (mounted) {
           setState(() {
             _userData = doc.data();
+          });
+        }
+
+        // 2. ✅ Calculer les statistiques dynamiques
+        await _calculateStatistics();
+
+        if (mounted) {
+          setState(() {
             _isLoading = false;
           });
         }
@@ -52,6 +69,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
           });
         }
       }
+    }
+  }
+
+  // ========================================================================
+  // ✅ CALCUL DES STATISTIQUES DYNAMIQUES
+  // ========================================================================
+  Future<void> _calculateStatistics() async {
+    if (_currentUser == null) return;
+
+    try {
+      // 1. Nombre total de trajets publiés
+      final tripsSnapshot = await _firestore
+          .collection('trips')
+          .where('driverId', isEqualTo: _currentUser!.uid)
+          .get();
+
+      _totalTrips = tripsSnapshot.docs.length;
+
+      // 2. Nombre total de passagers (réservations confirmées)
+      final bookingsSnapshot = await _firestore
+          .collection('bookings')
+          .where('driverId', isEqualTo: _currentUser!.uid)
+          .where('status', isEqualTo: 'confirmed')
+          .get();
+
+      // Compter le nombre de places réservées (seatsBooked)
+      int passengersCount = 0;
+      for (var doc in bookingsSnapshot.docs) {
+        final data = doc.data();
+        passengersCount += (data['seatsBooked'] as int? ?? 1);
+      }
+      _totalPassengers = passengersCount;
+
+      // 3. Note moyenne (si vous avez un système de notation)
+      // Pour l'instant, on prend la note stockée dans users
+      _averageRating = (_userData?['rating'] as num?)?.toDouble() ?? 4.9;
+
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Erreur calcul statistiques: $e');
     }
   }
 
@@ -107,12 +166,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final memberSince =
         (_userData?['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
 
+    // ✅ Bio dynamique
+    final userBio = _userData?['bio'] as String? ??
+        'Aucune description disponible pour le moment.';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       body: Stack(
         children: [
           _buildHeader(userName, memberSince),
-          _buildDraggableSheet(userName, userEmail, userPhone),
+          _buildDraggableSheet(userName, userEmail, userPhone, userBio),
         ],
       ),
       bottomNavigationBar: BottomNav(
@@ -145,7 +208,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
               break;
             case 4:
-              // Déjà sur Profile
               break;
           }
         },
@@ -153,10 +215,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════
-  // HEADER
-  // ═══════════════════════════════════════════════
   Widget _buildHeader(String userName, DateTime memberSince) {
+    final avatarUrl = _userData?['avatarUrl'] as String?;
+
     return Container(
       height: 280,
       decoration: const BoxDecoration(
@@ -181,21 +242,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ],
             ),
-            child: Center(
-              child: Text(
-                userName[0].toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
+            child: avatarUrl != null && avatarUrl.isNotEmpty
+                ? ClipOval(
+                    child: Image.network(
+                      avatarUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildDefaultAvatar(userName);
+                      },
+                    ),
+                  )
+                : _buildDefaultAvatar(userName),
           ),
 
           const SizedBox(height: 16),
 
-          // Nom
           Text(
             userName,
             style: const TextStyle(
@@ -207,7 +268,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           const SizedBox(height: 6),
 
-          // Membre depuis
           Text(
             'Membre depuis ${memberSince.year}',
             style: const TextStyle(
@@ -218,30 +278,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           const SizedBox(height: 8),
 
-          // Rating
+          // ✅ Note dynamique
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.star, color: Colors.amber, size: 18),
-                SizedBox(width: 4),
+                const Icon(Icons.star, color: Colors.amber, size: 18),
+                const SizedBox(width: 4),
                 Text(
-                  '4.9',
-                  style: TextStyle(
+                  _averageRating.toStringAsFixed(1),
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
                 ),
-                SizedBox(width: 4),
+                const SizedBox(width: 4),
                 Text(
-                  '(67 avis)',
-                  style: TextStyle(
+                  '($_totalTrips trajet${_totalTrips > 1 ? 's' : ''})',
+                  style: const TextStyle(
                     fontSize: 13,
                     color: Colors.white70,
                   ),
@@ -254,11 +314,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════
-  // DRAGGABLE SHEET
-  // ═══════════════════════════════════════════════
+  Widget _buildDefaultAvatar(String userName) {
+    return Center(
+      child: Text(
+        userName.isNotEmpty ? userName[0].toUpperCase() : '?',
+        style: const TextStyle(
+          fontSize: 40,
+          fontWeight: FontWeight.bold,
+          color: AppColors.primary,
+        ),
+      ),
+    );
+  }
+
   Widget _buildDraggableSheet(
-      String userName, String userEmail, String userPhone) {
+      String userName, String userEmail, String userPhone, String userBio) {
     return DraggableScrollableSheet(
       initialChildSize: 0.60,
       minChildSize: 0.60,
@@ -273,7 +343,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             controller: scrollController,
             padding: const EdgeInsets.all(20),
             children: [
-              // Drag handle
               Center(
                 child: Container(
                   width: 40,
@@ -287,27 +356,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               const SizedBox(height: 20),
 
-              // Stats
+              // ✅ Stats dynamiques
               _buildStats(),
 
               const SizedBox(height: 16),
 
-              // À propos
-              _buildAboutCard(userName),
+              // ✅ Bio dynamique
+              _buildAboutCard(userBio),
 
               const SizedBox(height: 16),
 
-              // Vérifications
               _buildVerificationsCard(userEmail, userPhone),
 
               const SizedBox(height: 16),
 
-              // Menu
               _buildMenuCard(),
 
               const SizedBox(height: 16),
 
-              // Bouton déconnexion
               _buildLogoutButton(),
 
               const SizedBox(height: 40),
@@ -318,19 +384,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════
-  // STATS
-  // ═══════════════════════════════════════════════
+  // ✅ Stats dynamiques
   Widget _buildStats() {
     return Row(
       children: [
         _buildStatCard(
-            Icons.directions_car_outlined, '156', 'Trajets', AppColors.primary),
+          Icons.directions_car_outlined,
+          _totalTrips.toString(),
+          'Trajet${_totalTrips > 1 ? 's' : ''}',
+          AppColors.primary,
+        ),
         const SizedBox(width: 12),
         _buildStatCard(
-            Icons.people_outline, '234', 'Passagers', AppColors.accent),
+          Icons.people_outline,
+          _totalPassengers.toString(),
+          'Passager${_totalPassengers > 1 ? 's' : ''}',
+          AppColors.accent,
+        ),
         const SizedBox(width: 12),
-        _buildStatCard(Icons.star_outline, '4.9', 'Note', AppColors.warning),
+        _buildStatCard(
+          Icons.star_outline,
+          _averageRating.toStringAsFixed(1),
+          'Note',
+          AppColors.warning,
+        ),
       ],
     );
   }
@@ -364,6 +441,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 fontSize: 12,
                 color: AppColors.textSecondary,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -371,10 +449,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════
-  // À PROPOS
-  // ═══════════════════════════════════════════════
-  Widget _buildAboutCard(String userName) {
+  // ✅ Bio dynamique
+  Widget _buildAboutCard(String userBio) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -395,8 +471,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Employée dans une entreprise privée à Tunis. '
-            'Je publie mes trajets quotidiens pour partager les frais et voyager en bonne compagnie.',
+            userBio,
             style: const TextStyle(
               fontSize: 14,
               color: AppColors.textSecondary,
@@ -408,10 +483,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════
-  // VÉRIFICATIONS
-  // ═══════════════════════════════════════════════
   Widget _buildVerificationsCard(String userEmail, String userPhone) {
+    final hasDriverLicense = _userData?['hasDriverLicense'] as bool? ?? false;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -435,7 +509,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Divider(height: 24),
           _buildVerificationRow('Email', userEmail.isNotEmpty),
           const Divider(height: 24),
-          _buildVerificationRow('Permis de conduire', false),
+          _buildVerificationRow('Permis de conduire', hasDriverLicense),
         ],
       ),
     );
@@ -485,9 +559,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════
-  // MENU
-  // ═══════════════════════════════════════════════
   Widget _buildMenuCard() {
     return Container(
       decoration: BoxDecoration(
@@ -504,7 +575,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => MyTripsScreen(),
+                  builder: (context) => const MyTripsScreen(),
                 ),
               );
             },
@@ -514,7 +585,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.bookmark_outline,
             title: 'Mes réservations',
             onTap: () {
-              debugPrint('Navigation vers Mes réservations');
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MyBookingsScreen(),
+                ),
+              );
             },
           ),
           const Divider(height: 1, indent: 56),
@@ -529,8 +605,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildMenuItem(
             icon: Icons.settings_outlined,
             title: 'Paramètres',
-            onTap: () {
-              debugPrint('Navigation vers Paramètres');
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+
+              if (result == true) {
+                _loadUserData();
+              }
             },
           ),
         ],
@@ -580,9 +665,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════
-  // LOGOUT BUTTON
-  // ═══════════════════════════════════════════════
   Widget _buildLogoutButton() {
     return Container(
       width: double.infinity,
