@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../utils/constants.dart';
 import 'publish_ride_screen.dart';
 import 'trip_detail_screen.dart';
+import '../utils/notification_helper.dart';
 
 class MyTripsScreen extends StatefulWidget {
   const MyTripsScreen({super.key});
@@ -19,9 +20,6 @@ class _MyTripsScreenState extends State<MyTripsScreen>
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   late TabController _tabController;
-
-  // On garde vos statuts existants et on ajoute la logique pour les demandes à part
-  final List<String> _tripStatuses = ['upcoming', 'completed'];
 
   @override
   void initState() {
@@ -93,7 +91,7 @@ class _MyTripsScreenState extends State<MyTripsScreen>
   }
 
   // ---------------------------------------------------------------------------
-  // VOS LISTES EXISTANTES (À venir / Historique)
+  // LISTES EXISTANTES (À venir / Historique)
   // ---------------------------------------------------------------------------
   Widget _buildTripList(String status, String uid) {
     return StreamBuilder<QuerySnapshot>(
@@ -101,8 +99,7 @@ class _MyTripsScreenState extends State<MyTripsScreen>
           .collection('trips')
           .where('driverId', isEqualTo: uid)
           .where('status', isEqualTo: status)
-          .orderBy('date',
-              descending: status == 'completed') // Tri selon le contexte
+          .orderBy('date', descending: status == 'completed')
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -232,7 +229,8 @@ class _MyTripsScreenState extends State<MyTripsScreen>
                                   size: 16, color: Color(0xFF6B7280)),
                               const SizedBox(width: 4),
                               Text(
-                                '${data['availableSeats']}/${data['seats']} places',
+                                // ✅ OPTION 2 : Afficher seulement les places disponibles
+                                '${data['availableSeats']} place${data['availableSeats'] > 1 ? 's' : ''} disponible${data['availableSeats'] > 1 ? 's' : ''}',
                                 style: const TextStyle(
                                   color: Color(0xFF6B7280),
                                   fontSize: 13,
@@ -504,12 +502,47 @@ class _MyTripsScreenState extends State<MyTripsScreen>
           'availableSeats': FieldValue.increment(-1),
         });
 
+        final bookingDoc =
+            await _firestore.collection('bookings').doc(bookingId).get();
+        final bookingData = bookingDoc.data();
+        final driverDoc = await _firestore
+            .collection('users')
+            .doc(_auth.currentUser!.uid)
+            .get();
+        final driverName = driverDoc.data()?['name'] as String? ?? 'Conducteur';
+
+        await NotificationHelper.createBookingConfirmedNotification(
+          passengerId: bookingData?['passengerId'] as String,
+          driverName: driverName,
+          tripId: tripId,
+          from: bookingData?['tripDetails']['from'] as String? ?? '',
+          to: bookingData?['tripDetails']['to'] as String? ?? '',
+        );
+
         _showSnack("Demande acceptée avec succès !", isError: false);
       } else {
         // REFUSER
         await _firestore.collection('bookings').doc(bookingId).update({
           'status': 'rejected',
         });
+
+        final bookingDoc =
+            await _firestore.collection('bookings').doc(bookingId).get();
+        final bookingData = bookingDoc.data();
+        final driverDoc = await _firestore
+            .collection('users')
+            .doc(_auth.currentUser!.uid)
+            .get();
+        final driverName = driverDoc.data()?['name'] as String? ?? 'Conducteur';
+
+        await NotificationHelper.createBookingRejectedNotification(
+          passengerId: bookingData?['passengerId'] as String,
+          driverName: driverName,
+          tripId: tripId ?? '',
+          from: bookingData?['tripDetails']['from'] as String? ?? '',
+          to: bookingData?['tripDetails']['to'] as String? ?? '',
+        );
+
         _showSnack("Demande refusée.", isError: false);
       }
     } catch (e) {

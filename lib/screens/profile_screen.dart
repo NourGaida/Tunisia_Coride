@@ -10,6 +10,7 @@ import 'search_screen.dart';
 import 'publish_ride_screen.dart';
 import 'messages_screen.dart';
 import 'settings_screen.dart';
+import 'payment_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -102,9 +103,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
       _totalPassengers = passengersCount;
 
-      // 3. Note moyenne (si vous avez un système de notation)
-      // Pour l'instant, on prend la note stockée dans users
-      _averageRating = (_userData?['rating'] as num?)?.toDouble() ?? 4.9;
+      // 3. Note moyenne et nombre total de notes
+      final ratingsSnapshot = await _firestore
+          .collection('users')
+          .doc(_currentUser!.uid)
+          .collection('ratings')
+          .get();
+
+      final totalRatings = ratingsSnapshot.docs.length;
+
+      if (totalRatings > 0) {
+        double totalRating = 0.0;
+        for (var doc in ratingsSnapshot.docs) {
+          final rating = (doc.data()['rating'] as num?)?.toDouble() ?? 0.0;
+          totalRating += rating;
+        }
+        _averageRating = totalRating / totalRatings;
+      } else {
+        _averageRating = 0.0;
+      }
 
       if (mounted) {
         setState(() {});
@@ -598,7 +615,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.payment_outlined,
             title: 'Mode de paiement',
             onTap: () {
-              debugPrint('Navigation vers Mode de paiement');
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PaymentScreen(),
+                ),
+              );
             },
           ),
           const Divider(height: 1, indent: 56),

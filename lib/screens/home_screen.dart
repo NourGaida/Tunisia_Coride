@@ -11,6 +11,7 @@ import 'profile_screen.dart';
 import 'trip_detail_screen.dart';
 import '../models/ride.dart';
 import 'package:intl/intl.dart';
+import 'notifications_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,10 +23,13 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   User? _currentUser;
+  String? _userName;
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  List<Ride> _popularTrips = []; // <<< MODIFIÉ : Stocke des objets Ride
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  List<Ride> _popularTrips = []; // <<< Stocke des objets Ride
   bool _isLoadingTrips = true;
+  int _unreadNotificationsCount = 0;
 
   @override
   void initState() {
@@ -35,7 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _checkCurrentUser() {
-    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+    FirebaseAuth.instance.authStateChanges().listen((User? user) async {
       if (mounted) {
         setState(() {
           _currentUser = user;
@@ -44,7 +48,44 @@ class _HomeScreenState extends State<HomeScreen> {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const AuthScreen()),
           );
+        } else {
+          // Récupérer le nom depuis Firestore
+          try {
+            final userDoc =
+                await _firestore.collection('users').doc(user.uid).get();
+            if (userDoc.exists) {
+              final userData = userDoc.data();
+              if (mounted) {
+                setState(() {
+                  _userName = userData?['name'] as String?;
+                });
+              }
+            }
+          } catch (e) {
+            debugPrint('Erreur récupération nom: $e');
+          }
+
+          // NOUVEAU : Écouter les notifications
+          _listenToNotifications();
         }
+      }
+    });
+  }
+
+  void _listenToNotifications() {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+
+    _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: currentUser.uid)
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted) {
+        setState(() {
+          _unreadNotificationsCount = snapshot.docs.length;
+        });
       }
     });
   }
@@ -312,9 +353,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontWeight: FontWeight.bold,
                     color: Colors.white),
               ),
+              // ✅ MODIFIÉ : Afficher le nom récupéré de Firestore
               _currentUser != null
                   ? Text(
-                      'Bienvenue, ${_currentUser!.displayName ?? _currentUser!.email?.split('@')[0] ?? 'Utilisateur'} !',
+                      'Bienvenue, ${_userName ?? _currentUser!.email?.split('@')[0] ?? 'Utilisateur'} !',
                       style:
                           const TextStyle(fontSize: 13, color: Colors.white70),
                     )
@@ -325,10 +367,50 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        IconButton(
-          onPressed: () => debugPrint('Notifications'),
-          icon: const Icon(Icons.notifications_outlined,
-              color: Colors.white, size: 24),
+        // ✅ MODIFIÉ : Bouton notifications avec badge
+        Stack(
+          children: [
+            IconButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const NotificationsScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.notifications_outlined,
+                  color: Colors.white, size: 24),
+            ),
+            if (_unreadNotificationsCount > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: AppColors.error,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  child: Center(
+                    child: Text(
+                      _unreadNotificationsCount > 9
+                          ? '9+'
+                          : _unreadNotificationsCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ],
     );
@@ -402,7 +484,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // <<< MODIFIÉ : _buildTripCard accepte un objet Ride
+  // <<<  _buildTripCard accepte un objet Ride
   Widget _buildTripCard(Ride ride) {
     // Utilise les propriétés de l'objet Ride directement
     return Card(

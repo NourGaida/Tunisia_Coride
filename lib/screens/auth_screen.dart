@@ -52,6 +52,266 @@ class _AuthScreenState extends State<AuthScreen>
     super.dispose();
   }
 
+  void _showForgotPasswordDialog() {
+    final emailController = TextEditingController();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        contentPadding: EdgeInsets.zero,
+        content: Container(
+          width: MediaQuery.of(context).size.width * 0.85,
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header avec gradient
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: const BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(
+                      Icons.lock_reset,
+                      size: 48,
+                      color: Colors.white,
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'Réinitialiser le mot de passe',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Corps
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        labelText: 'Adresse email',
+                        hintText: 'exemple@email.com',
+                        prefixIcon: const Icon(Icons.email_outlined),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: AppColors.primary, width: 2),
+                        ),
+                        filled: true,
+                        fillColor: const Color(0xFFF9FAFB),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Boutons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side:
+                                  const BorderSide(color: AppColors.textMuted),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'Annuler',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: AppColors.primaryGradient,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton(
+                              onPressed: () => _handlePasswordReset(
+                                  dialogContext, emailController.text.trim()),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                'Envoyer',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+// Méthode séparée pour gérer l'envoi
+  Future<void> _handlePasswordReset(
+      BuildContext dialogContext, String email) async {
+    if (email.isEmpty) {
+      _showSnackBar('Veuillez entrer votre adresse email');
+      return;
+    }
+
+    if (!email.contains('@') || !email.contains('.')) {
+      _showSnackBar('Adresse email invalide');
+      return;
+    }
+
+    // Afficher un loader
+    showDialog(
+      context: dialogContext,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+
+      if (dialogContext.mounted) {
+        Navigator.pop(dialogContext); // Fermer le loader
+        Navigator.pop(dialogContext); // Fermer le dialog principal
+      }
+
+      if (mounted) {
+        // Afficher un dialog de succès
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: AppColors.success, size: 28),
+                SizedBox(width: 8),
+                Text('Email envoyé !'),
+              ],
+            ),
+            content: Text(
+              'Un email de réinitialisation a été envoyé à $email.\n\nVérifiez votre boîte de réception et suivez les instructions.',
+              style: const TextStyle(height: 1.5),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.success,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Compris'),
+              ),
+            ],
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (dialogContext.mounted) {
+        Navigator.pop(dialogContext); // Fermer le loader
+      }
+
+      String message;
+      switch (e.code) {
+        case 'user-not-found':
+          message = 'Aucun compte associé à cette adresse email.';
+          break;
+        case 'invalid-email':
+          message = 'Adresse email invalide.';
+          break;
+        case 'too-many-requests':
+          message = 'Trop de tentatives. Veuillez réessayer plus tard.';
+          break;
+        default:
+          message = 'Erreur : ${e.message}';
+      }
+
+      if (mounted) {
+        _showSnackBar(message);
+      }
+    } catch (e) {
+      if (dialogContext.mounted) {
+        Navigator.pop(dialogContext); // Fermer le loader
+      }
+
+      if (mounted) {
+        _showSnackBar('Une erreur est survenue. Veuillez réessayer.');
+      }
+    }
+  }
+
   void _handleLogin() async {
     final email = _loginEmailController.text.trim();
     final password = _loginPasswordController.text.trim();
@@ -380,10 +640,7 @@ class _AuthScreenState extends State<AuthScreen>
           alignment: Alignment.centerRight,
           child: TextButton(
             onPressed: () {
-              // TODO: Implémenter la récupération de mot de passe Firebase
-              // Exemple: await _auth.sendPasswordResetEmail(email: _loginEmailController.text.trim());
-              _showSnackBar(
-                  'Fonctionnalité de récupération de mot de passe à venir');
+              _showForgotPasswordDialog();
             },
             style: TextButton.styleFrom(
               padding: EdgeInsets.zero,

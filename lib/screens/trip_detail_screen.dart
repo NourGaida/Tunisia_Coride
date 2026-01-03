@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../utils/constants.dart';
 import 'chat_screen.dart';
+import 'edit_trip_screen.dart';
+import 'driver_rating_screen.dart';
+import '../utils/notification_helper.dart';
 
 class TripDetailScreen extends StatefulWidget {
   final String tripId;
@@ -28,11 +31,121 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   bool _isLoading = true;
   bool _hasError = false;
   bool _isBooking = false;
+  int _driverTotalTrips = 0;
 
   @override
   void initState() {
     super.initState();
     _fetchTripDetails();
+  }
+
+  Future<void> _deleteTrip() async {
+    // Confirmation de suppression
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer le trajet'),
+        content: const Text(
+          'Êtes-vous sûr de vouloir supprimer ce trajet ?\n\n'
+          'Cette action est irréversible et supprimera également toutes les réservations associées.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() =>
+        _isBooking = true); // Réutilisation du flag pour l'état de chargement
+
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('Vous devez être connecté');
+      }
+
+      // Vérifier que l'utilisateur est bien le propriétaire
+      if (_tripData!['driverId'] != currentUser.uid) {
+        throw Exception('Vous n\'êtes pas autorisé à supprimer ce trajet');
+      }
+
+      // Vérifier s'il y a des réservations confirmées
+      final bookings = await _firestore
+          .collection('bookings')
+          .where('tripId', isEqualTo: widget.tripId)
+          .where('status', isEqualTo: 'confirmed')
+          .get();
+
+      if (bookings.docs.isNotEmpty) {
+        throw Exception(
+          'Impossible de supprimer un trajet avec des réservations confirmées.\n'
+          'Veuillez d\'abord annuler les réservations.',
+        );
+      }
+
+      // Supprimer toutes les réservations en attente
+      final pendingBookings = await _firestore
+          .collection('bookings')
+          .where('tripId', isEqualTo: widget.tripId)
+          .get();
+
+      // Utiliser un batch pour supprimer toutes les réservations
+      final batch = _firestore.batch();
+      for (var doc in pendingBookings.docs) {
+        batch.delete(doc.reference);
+      }
+
+      // Supprimer le trajet
+      batch.delete(_firestore.collection('trips').doc(widget.tripId));
+
+      await batch.commit();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Trajet supprimé avec succès'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+
+      // Retour à l'écran précédent
+      Navigator.pop(context);
+    } on Exception catch (e) {
+      debugPrint('❌ Erreur de suppression: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur inattendue: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors de la suppression du trajet'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isBooking = false);
+      }
+    }
   }
 
   Future<void> _fetchTripDetails() async {
@@ -59,6 +172,12 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         if (driverDoc.exists) {
           _driverData = driverDoc.data() as Map<String, dynamic>;
         }
+        final tripsSnapshot = await _firestore
+            .collection('trips')
+            .where('driverId', isEqualTo: driverId)
+            .get();
+
+        _driverTotalTrips = tripsSnapshot.docs.length;
       }
 
       if (mounted) {
@@ -84,7 +203,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     setState(() => _isBooking = true);
 
     try {
-      //Récupérer les données utilisateur DEPUIS FIRESTORE
+      // Récupérer les données utilisateur DEPUIS FIRESTORE
       final userDoc =
           await _firestore.collection('users').doc(currentUser.uid).get();
 
@@ -125,7 +244,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           throw Exception('Plus de places disponibles');
         }
 
-        //  CRÉER UNE SEULE RÉSERVATION AVEC TOUTES LES INFOS
+        // CRÉER UNE SEULE RÉSERVATION AVEC TOUTES LES INFOS
         final bookingRef = _firestore.collection('bookings').doc();
         transaction.set(bookingRef, {
           // Info passager
@@ -158,7 +277,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           },
         });
 
-        debugPrint(' Réservation créée : ${bookingRef.id}');
+        debugPrint('✅ Réservation créée : ${bookingRef.id}');
 
         // La décrémentation se fera lors de la CONFIRMATION par le conducteur
         transaction.update(tripRef, {
@@ -166,9 +285,21 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         });
       });
 
+      // Créer une notification pour le conducteur
+      await NotificationHelper.createBookingNotification(
+        driverId: driverId,
+        passengerId: currentUser.uid,
+        passengerName: userName,
+        tripId: widget.tripId,
+        from: _tripData!['departureLocation'] as String,
+        to: _tripData!['arrivalLocation'] as String,
+      );
+
       if (!mounted) return;
 
       await _openChat(driverId, userName, isBooking: true);
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -356,7 +487,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final String? driverAvatar = _driverData?['avatarUrl'] as String?;
     final double driverRating =
         (_driverData?['rating'] as num?)?.toDouble() ?? 0.0;
-    final int driverTotalTrips = (_driverData?['trips'] as num?)?.toInt() ?? 0;
+    final int driverTotalTrips = _driverTotalTrips;
+
     final String driverBio =
         _driverData?['bio'] as String? ?? 'Bio non disponible.';
 
@@ -427,9 +559,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   Widget _buildDriverCard(
       String name, String? avatarUrl, double rating, int trips, String bio) {
-    // Récupérer le sexe du conducteur
     final gender = _driverData?['gender'] as String?;
     final hasLicense = _driverData?['hasDriverLicense'] as bool? ?? false;
+    final phoneNumber = _driverData?['phone'] as String?;
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -439,118 +571,208 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-            backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                ? NetworkImage(avatarUrl)
-                : null,
-            child: (avatarUrl == null || avatarUrl.isEmpty)
-                ? Text(
-                    name.isNotEmpty ? name[0].toUpperCase() : '?',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        name,
+          // Partie supérieure (avatar + infos)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                    ? NetworkImage(avatarUrl)
+                    : null,
+                child: (avatarUrl == null || avatarUrl.isEmpty)
+                    ? Text(
+                        name.isNotEmpty ? name[0].toUpperCase() : '?',
                         style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
                         ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (gender != null && gender != 'Non spécifié') ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            gender == 'Homme' ? Icons.male : Icons.female,
+                            size: 16,
+                            color: AppColors.textMuted,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.star,
+                            size: 16, color: AppColors.warning),
+                        const SizedBox(width: 4),
+                        Text(
+                          rating > 0 ? rating.toStringAsFixed(1) : 'Non noté',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '· $trips trajets',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        if (hasLicense) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.verified,
+                                  size: 12,
+                                  color: AppColors.success,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Permis',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.success,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      bio,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                        height: 1.4,
                       ),
                     ),
-                    if (gender != null && gender != 'Non spécifié') ...[
-                      const SizedBox(width: 6),
-                      Icon(
-                        gender == 'Homme' ? Icons.male : Icons.female,
-                        size: 16,
-                        color: AppColors.textMuted,
-                      ),
-                    ],
                   ],
                 ),
-                const SizedBox(height: 4),
-                Row(
+              ),
+            ],
+          ),
+
+          // Affichage du numéro de téléphone
+          if (phoneNumber != null && phoneNumber.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.phone,
+                    size: 18,
+                    color: AppColors.accent,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.star, size: 16, color: AppColors.warning),
-                    const SizedBox(width: 4),
+                    const Text(
+                      'Téléphone',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
                     Text(
-                      rating.toStringAsFixed(1),
+                      phoneNumber,
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '· $trips trajets',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    if (hasLicense) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.success.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.verified,
-                              size: 12,
-                              color: AppColors.success,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Permis',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: AppColors.success,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  bio,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                    height: 1.4,
-                  ),
-                ),
               ],
+            ),
+          ],
+
+          // ✅ NOUVEAU : Bouton pour noter le conducteur
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DriverRatingScreen(
+                      driverId: _tripData!['driverId'] as String,
+                      driverName: name,
+                      driverAvatar: avatarUrl,
+                    ),
+                  ),
+                );
+
+                // Si une note a été ajoutée, recharger les détails
+                if (result == true && mounted) {
+                  _fetchTripDetails();
+                }
+              },
+              icon: const Icon(Icons.star_outline, size: 18),
+              label: const Text('Évaluer ce conducteur'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                side:
+                    BorderSide(color: AppColors.warning.withValues(alpha: 0.5)),
+                foregroundColor: AppColors.warning,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
             ),
           ),
         ],
@@ -602,7 +824,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   Container(
                     width: 16,
                     height: 16,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: AppColors.accent,
                       shape: BoxShape.circle,
                     ),
@@ -800,23 +1022,83 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Widget _buildOwnTripButton() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.textMuted.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.textMuted),
-      ),
-      child: const Text(
-        'Votre trajet',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textSecondary,
+    return Column(
+      children: [
+        // Bouton Modifier (existant)
+        SizedBox(
+          width: double.infinity,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: AppColors.primaryGradient,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditTripScreen(
+                      tripId: widget.tripId,
+                      tripData: _tripData!,
+                    ),
+                  ),
+                );
+                if (result == true && mounted) {
+                  _fetchTripDetails();
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(
+                Icons.edit,
+                color: Colors.white,
+                size: 20,
+              ),
+              label: const Text(
+                'Modifier le trajet',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
         ),
-      ),
+
+        const SizedBox(height: 12),
+
+        // Nouveau bouton Supprimer
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _isBooking ? null : _deleteTrip,
+            icon: const Icon(Icons.delete_outline, size: 20),
+            label: const Text('Supprimer le trajet'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: const BorderSide(color: AppColors.error),
+              foregroundColor: AppColors.error,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

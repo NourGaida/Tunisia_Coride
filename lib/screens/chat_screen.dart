@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/constants.dart';
+import '../utils/notification_helper.dart';
 
 class ChatScreen extends StatefulWidget {
   final String conversationId;
@@ -89,6 +90,21 @@ class _ChatScreenState extends State<ChatScreen> {
         'lastMessageSenderId': currentUser.uid,
         'unreadCount_${widget.otherUserId}': FieldValue.increment(1),
       });
+
+      final userDoc =
+          await _firestore.collection('users').doc(currentUser.uid).get();
+      final userData = userDoc.data();
+      final userName = userData?['name'] as String? ?? 'Utilisateur';
+      final userAvatar = userData?['avatarUrl'] as String?;
+
+      await NotificationHelper.createMessageNotification(
+        userId: widget.otherUserId,
+        senderId: currentUser.uid,
+        senderName: userName,
+        senderAvatar: userAvatar,
+        conversationId: widget.conversationId,
+        messagePreview: text.length > 50 ? '${text.substring(0, 50)}...' : text,
+      );
 
       _messageController.clear();
 
