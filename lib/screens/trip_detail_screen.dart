@@ -519,6 +519,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         centerTitle: false,
       ),
       body: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 180),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -701,8 +702,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           // Affichage du numéro de téléphone
           if (phoneNumber != null && phoneNumber.isNotEmpty) ...[
             const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
+              Divider(height: 1, color: const Color(0xFFEEF2F6)),
+              const SizedBox(height: 12),
             Row(
               children: [
                 Container(
@@ -745,7 +746,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
           // ✅ NOUVEAU : Bouton pour noter le conducteur
           const SizedBox(height: 12),
-          const Divider(height: 1),
+          Divider(height: 1, color: const Color(0xFFEEF2F6)),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -997,9 +998,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final currentUser = _auth.currentUser!;
     final driverId = _tripData!['driverId'] as String;
     final isMyOwnTrip = currentUser.uid == driverId;
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -1013,7 +1013,116 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       child: SafeArea(
         child: isMyOwnTrip
             ? _buildOwnTripButton()
-            : _buildPassengerButtons(price, driverId),
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Prix total
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, right: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Prix total',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${price.toInt()} TND',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      // Message
+                      SizedBox(
+                        width: 140,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final userDoc = await _firestore
+                                .collection('users')
+                                .doc(_auth.currentUser!.uid)
+                                .get();
+                            final userName = userDoc.data()?['name'] ?? 'Utilisateur';
+                            if (!mounted) return;
+                            _openChat(driverId, userName, isBooking: false);
+                          },
+                          icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                          label: const Text('Message'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            side: BorderSide(color: AppColors.accent.withValues(alpha: 0.9)),
+                            foregroundColor: AppColors.accent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Réserver
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.25),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: _isBooking ? null : () => _bookTrip(driverId, price),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              minimumSize: const Size.fromHeight(48),
+                            ),
+                            child: _isBooking
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(
+                                    'Réserver (${price.toInt()} TND)',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -1104,7 +1213,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   Widget _buildPassengerButtons(double price, String driverId) {
     return Row(
       children: [
-        Expanded(
+        SizedBox(
+          width: 120,
           child: OutlinedButton.icon(
             onPressed: () async {
               final userDoc = await _firestore
@@ -1119,16 +1229,17 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             icon: const Icon(Icons.chat_bubble_outline, size: 19),
             label: const Text('Message'),
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              side: BorderSide(color: AppColors.accent.withValues(alpha: 0.7)),
+              minimumSize: const Size.fromHeight(48),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              side: BorderSide(color: AppColors.accent.withValues(alpha: 0.85)),
               foregroundColor: AppColors.accent,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
         ),
-        const SizedBox(width: 11),
+        const SizedBox(width: 14),
         Expanded(
           flex: 2,
           child: Container(
@@ -1148,10 +1259,11 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(vertical: 13),
+                padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                minimumSize: const Size.fromHeight(48),
               ),
               child: _isBooking
                   ? const SizedBox(

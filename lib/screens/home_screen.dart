@@ -474,31 +474,56 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildFeatureCard(
       {required IconData icon, required String title, required Color color}) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
+    final key = 'feature_${title.replaceAll(' ', '_').toLowerCase()}';
+    final isHovered = _hoveredCards[key] ?? false;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoveredCards[key] = true),
+      onExit: (_) => setState(() => _hoveredCards[key] = false),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _hoveredCards[key] = true),
+        onTapUp: (_) => setState(() => _hoveredCards[key] = false),
+        onTapCancel: () => setState(() => _hoveredCards[key] = false),
+        child: AnimatedScale(
+          scale: isHovered ? 1.06 : 1.0,
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1), // Rétabli withValues
-              shape: BoxShape.circle,
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE7EAF0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isHovered ? 0.10 : 0.03),
+                  blurRadius: isHovered ? 18 : 8,
+                  offset: isHovered ? const Offset(0, 8) : const Offset(0, 2),
+                ),
+              ],
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Column(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                const SizedBox(height: 10),
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF374151))),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF374151))),
-        ],
+        ),
       ),
     );
   }
@@ -547,6 +572,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             );
+          },
+          onTapDown: (_) {
+            setState(() {
+              _hoveredCards[ride.id] = true;
+            });
+          },
+          onTapUp: (_) {
+            setState(() {
+              _hoveredCards[ride.id] = false;
+            });
+          },
+          onTapCancel: () {
+            setState(() {
+              _hoveredCards[ride.id] = false;
+            });
           },
           borderRadius: BorderRadius.circular(16),
           child: Padding(
