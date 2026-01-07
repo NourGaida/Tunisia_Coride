@@ -30,6 +30,9 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Ride> _popularTrips = []; // <<< Stocke des objets Ride
   bool _isLoadingTrips = true;
   int _unreadNotificationsCount = 0;
+  
+  // Pour gérer le hover effect sur les cartes
+  final Map<String, bool> _hoveredCards = {};
 
   @override
   void initState() {
@@ -197,15 +200,15 @@ class _HomeScreenState extends State<HomeScreen> {
             SliverToBoxAdapter(
               child: Container(
                 decoration: const BoxDecoration(
-                  gradient: AppColors.primaryGradient,
+                  gradient: AppColors.headerGradient,
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildHeader(),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 28),
                       _buildSearchBar(),
                     ],
                   ),
@@ -221,9 +224,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Text(
                       'Pourquoi CoRide ?',
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF111827),
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                        letterSpacing: 0.2,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -267,9 +271,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Text(
                       'Trajets populaires',
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF111827),
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                        letterSpacing: 0.2,
                       ),
                     ),
                     Container(
@@ -328,41 +333,51 @@ class _HomeScreenState extends State<HomeScreen> {
     return Row(
       children: [
         Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
+          width: 45,
+          height: 45,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.white.withValues(alpha: 0.2),
+          ),
           padding: const EdgeInsets.all(6),
           child: Image.asset(
             AppAssets.logo,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
               return const Icon(Icons.directions_car,
-                  color: AppColors.primary, size: 24);
+                  color: Colors.white, size: 26);
             },
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Tunisia CoRide',
+                'CoRide',
                 style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: 0.5),
               ),
               // ✅ MODIFIÉ : Afficher le nom récupéré de Firestore
               _currentUser != null
                   ? Text(
-                      'Bienvenue, ${_userName ?? _currentUser!.email?.split('@')[0] ?? 'Utilisateur'} !',
-                      style:
-                          const TextStyle(fontSize: 13, color: Colors.white70),
-                    )
-                  : const Text(
                       'Connecting your journeys',
-                      style: TextStyle(fontSize: 13, color: Colors.white70),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontWeight: FontWeight.w400,
+                      ),
+                    )
+                  : Text(
+                      'Connecting your journeys',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.85),
+                      ),
                     ),
             ],
           ),
@@ -420,11 +435,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1), // Rétabli withValues
-            blurRadius: 10,
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -434,16 +449,20 @@ class _HomeScreenState extends State<HomeScreen> {
         child: InkWell(
           onTap: () => Navigator.push(
               context, MaterialPageRoute(builder: (_) => const SearchScreen())),
-          borderRadius: BorderRadius.circular(12),
-          child: const Padding(
-            padding: EdgeInsets.all(16),
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             child: Row(
               children: [
-                Icon(Icons.search, color: AppColors.textMuted, size: 24),
-                SizedBox(width: 12),
-                Text(
+                Icon(Icons.search, color: AppColors.primary.withValues(alpha: 0.6), size: 22),
+                const SizedBox(width: 12),
+                const Text(
                   'Où allez-vous ?',
-                  style: TextStyle(fontSize: 16, color: Color(0xFF9CA3AF)),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Color(0xFFB0B8C1),
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
               ],
             ),
@@ -487,36 +506,335 @@ class _HomeScreenState extends State<HomeScreen> {
   // <<<  _buildTripCard accepte un objet Ride
   Widget _buildTripCard(Ride ride) {
     // Utilise les propriétés de l'objet Ride directement
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      child: InkWell(
-        // Ajouté InkWell pour le onTap
-        onTap: () {
-          // Navigue vers TripDetailScreen
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => TripDetailScreen(
-                tripId: ride.id,
-              ),
+    final isHovered = _hoveredCards[ride.id] ?? false;
+    
+  return MouseRegion(
+    onEnter: (_) {
+      setState(() {
+        _hoveredCards[ride.id] = true;
+      });
+    },
+    onExit: (_) {
+      setState(() {
+        _hoveredCards[ride.id] = false;
+      });
+    },
+    child: AnimatedScale(
+      scale: isHovered ? 1.08 : 1.0,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isHovered ? 0.20 : 0.06),
+              blurRadius: isHovered ? 20 : 12,
+              offset: isHovered ? const Offset(0, 6) : const Offset(0, 3),
             ),
-          );
-        },
-        borderRadius: BorderRadius.circular(8), // Rayon pour le InkWell
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Départ: ${ride.from}'),
-              Text('Arrivée: ${ride.to}'),
-              Text(
-                  'Date: ${DateFormat('dd MMM').format(ride.date)}'), // Utilise DateFormat pour la date
-              Text('Prix: ${ride.price.toInt()} DT'),
+          ],
+        ),
+        child: InkWell(
+          onTap: () {
+            // Navigue vers TripDetailScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TripDetailScreen(
+                  tripId: ride.id,
+                ),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Section conducteur avec photo et note
+                Row(
+                  children: [
+                    // Photo du conducteur
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: ride.driver.avatar != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.network(
+                              ride.driver.avatar!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Center(
+                                  child: Icon(
+                                    Icons.person,
+                                    color: AppColors.primary,
+                                    size: 30,
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        : Center(
+                            child: Icon(
+                              Icons.person,
+                              color: AppColors.primary,
+                              size: 30,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Nom et note
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          ride.driver.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0F172A),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star_rounded,
+                              color: Color(0xFFFCD34D),
+                              size: 17,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              '${ride.driver.rating.toStringAsFixed(1)}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${ride.driver.trips} trajets',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF6B7280),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Lieux de départ et arrivée
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
+                    children: [
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Icon(
+                          Icons.location_on_outlined,
+                          color: AppColors.primary,
+                          size: 14,
+                        ),
+                      ),
+                      Container(
+                        width: 2,
+                        height: 20,
+                        color: AppColors.primary.withValues(alpha: 0.2),
+                      ),
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Icon(
+                          Icons.location_on,
+                          color: AppColors.primary,
+                          size: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          ride.from,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0F172A),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 22),
+                        Text(
+                          ride.to,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0F172A),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Informations du trajet (date, heure, places)
+              Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today_outlined,
+                          size: 16,
+                          color: Color(0xFF6B7280),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          DateFormat('dd MMM').format(ride.date),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF6B7280),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.access_time_outlined,
+                          size: 16,
+                          color: Color(0xFF6B7280),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          ride.time,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF6B7280),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.people_outline,
+                          size: 16,
+                          color: Color(0xFF6B7280),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${ride.availableSeats} places',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF6B7280),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Séparateur
+              Container(
+                height: 1,
+                color: const Color(0xFFE5E7EB),
+              ),
+              const SizedBox(height: 12),
+              // Prix et bouton disponible
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${ride.price.toInt()} TND',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const Text(
+                        '/ personne',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF9CA3AF),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: const Text(
+                      'Disponible',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.success,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
       ),
+    ),
+    ),
     );
   }
 

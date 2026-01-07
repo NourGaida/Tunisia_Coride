@@ -22,9 +22,16 @@ class AppColors {
   static const Color warning = Color(0xFFF59E0B); // Orange
   static const Color error = Color(0xFFEF4444); // Rouge
 
-  // Dégradé principal (bleu → turquoise)
+  // Dégradé principal (bleu foncé → cyan brillant)
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [primary, accent],
+    colors: [Color(0xFF1e3a8a), Color(0xFF0891b2)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  // Dégradé header (plus prononcé)
+  static const LinearGradient headerGradient = LinearGradient(
+    colors: [Color(0xFF0c2d5a), Color(0xFF06b6d4)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

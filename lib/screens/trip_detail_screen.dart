@@ -493,7 +493,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         _driverData?['bio'] as String? ?? 'Bio non disponible.';
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -518,29 +518,23 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         ),
         centerTitle: false,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildDriverCard(driverName, driverAvatar, driverRating,
-                      driverTotalTrips, driverBio),
-                  const SizedBox(height: 16),
-                  _buildItineraryCard(from, to, date, time, seats, price),
-                  const SizedBox(height: 16),
-                  _buildDescriptionCard(description),
-                  const SizedBox(height: 16),
-                  _buildOptionsCard(preferences),
-                  const SizedBox(height: 100),
-                ],
-              ),
-            ),
-          ),
-          _buildBottomButtons(price),
-        ],
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDriverCard(driverName, driverAvatar, driverRating,
+                driverTotalTrips, driverBio),
+            const SizedBox(height: 8),
+            _buildItineraryCard(from, to, date, time, seats, price),
+            const SizedBox(height: 8),
+            _buildDescriptionCard(description),
+            const SizedBox(height: 8),
+            _buildOptionsCard(preferences),
+            const SizedBox(height: 100),
+          ],
+        ),
       ),
+      bottomSheet: _buildBottomButtons(price),
     );
   }
 
@@ -568,8 +562,14 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -579,7 +579,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
-                radius: 28,
+                radius: 32,
                 backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                 backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
                     ? NetworkImage(avatarUrl)
@@ -588,14 +588,14 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     ? Text(
                         name.isNotEmpty ? name[0].toUpperCase() : '?',
                         style: const TextStyle(
-                          fontSize: 24,
+                          fontSize: 28,
                           fontWeight: FontWeight.bold,
                           color: AppColors.primary,
                         ),
                       )
                     : null,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -606,14 +606,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                           child: Text(
                             name,
                             style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
                               color: AppColors.textPrimary,
+                              letterSpacing: 0.3,
                             ),
                           ),
                         ),
                         if (gender != null && gender != 'Non spécifié') ...[
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Icon(
                             gender == 'Homme' ? Icons.male : Icons.female,
                             size: 16,
@@ -622,26 +623,27 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Row(
                       children: [
-                        const Icon(Icons.star,
-                            size: 16, color: AppColors.warning),
+                        const Icon(Icons.star_rounded,
+                            size: 16, color: Color(0xFFFCD34D)),
                         const SizedBox(width: 4),
                         Text(
                           rating > 0 ? rating.toStringAsFixed(1) : 'Non noté',
                           style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 12),
                         Text(
-                          '· $trips trajets',
+                          '${trips} trajets',
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         if (hasLicense) ...[
@@ -678,14 +680,17 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Text(
                       bio,
                       style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.textSecondary,
-                        height: 1.4,
+                        height: 1.5,
+                        fontWeight: FontWeight.w400,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -784,11 +789,17 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       int seats, double price) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -797,19 +808,20 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             'Itinéraire',
             style: TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
+              letterSpacing: 0.2,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Column(
                 children: [
                   Container(
-                    width: 16,
-                    height: 16,
+                    width: 14,
+                    height: 14,
                     decoration: const BoxDecoration(
                       color: AppColors.primary,
                       shape: BoxShape.circle,
@@ -817,13 +829,13 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   ),
                   Container(
                     width: 2,
-                    height: 60,
-                    color: AppColors.textMuted,
+                    height: 50,
+                    color: AppColors.primary.withValues(alpha: 0.3),
                     margin: const EdgeInsets.symmetric(vertical: 4),
                   ),
                   Container(
-                    width: 16,
-                    height: 16,
+                    width: 14,
+                    height: 14,
                     decoration: const BoxDecoration(
                       color: AppColors.accent,
                       shape: BoxShape.circle,
@@ -844,15 +856,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      time,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 36),
+                    const SizedBox(height: 30),
                     Text(
                       to,
                       style: const TextStyle(
@@ -866,22 +870,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Row(
             children: [
               _buildInfoIcon(
-                  Icons.calendar_today, DateFormat('dd MMM yyyy').format(date)),
-              const SizedBox(width: 20),
+                  Icons.calendar_today, DateFormat('dd MMM').format(date)),
+              const SizedBox(width: 18),
+              _buildInfoIcon(Icons.access_time_outlined, time),
+              const SizedBox(width: 18),
               _buildInfoIcon(Icons.people_outline, '$seats places'),
-              const Spacer(),
-              Text(
-                '${price.toInt()} TND',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.accent,
-                ),
-              ),
             ],
           ),
         ],
@@ -892,7 +889,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   Widget _buildInfoIcon(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: AppColors.textSecondary),
+        Icon(icon, size: 16, color: Color(0xFF6B7280)),
         const SizedBox(width: 6),
         Text(
           text,
@@ -1002,13 +999,13 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final isMyOwnTrip = currentUser.uid == driverId;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
             offset: const Offset(0, -2),
           ),
         ],
@@ -1023,19 +1020,20 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   Widget _buildOwnTripButton() {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Bouton Modifier (existant)
+        // Bouton Modifier
         SizedBox(
           width: double.infinity,
           child: Container(
             decoration: BoxDecoration(
               gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.3),
+                  color: AppColors.primary.withValues(alpha: 0.25),
                   blurRadius: 8,
-                  offset: const Offset(0, 4),
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
@@ -1057,15 +1055,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: const EdgeInsets.symmetric(vertical: 13),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
               icon: const Icon(
                 Icons.edit,
                 color: Colors.white,
-                size: 20,
+                size: 19,
               ),
               label: const Text(
                 'Modifier le trajet',
@@ -1073,27 +1071,28 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
+                  letterSpacing: 0.3,
                 ),
               ),
             ),
           ),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
 
-        // Nouveau bouton Supprimer
+        // Bouton Supprimer
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: _isBooking ? null : _deleteTrip,
-            icon: const Icon(Icons.delete_outline, size: 20),
+            icon: const Icon(Icons.delete_outline, size: 19),
             label: const Text('Supprimer le trajet'),
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              side: const BorderSide(color: AppColors.error),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              side: BorderSide(color: AppColors.error.withValues(alpha: 0.7)),
               foregroundColor: AppColors.error,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
           ),
@@ -1117,30 +1116,30 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               if (!mounted) return;
               _openChat(driverId, userName, isBooking: false);
             },
-            icon: const Icon(Icons.chat_bubble_outline, size: 20),
+            icon: const Icon(Icons.chat_bubble_outline, size: 19),
             label: const Text('Message'),
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              side: const BorderSide(color: AppColors.accent),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              side: BorderSide(color: AppColors.accent.withValues(alpha: 0.7)),
               foregroundColor: AppColors.accent,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 11),
         Expanded(
           flex: 2,
           child: Container(
             decoration: BoxDecoration(
               gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.3),
+                  color: AppColors.primary.withValues(alpha: 0.25),
                   blurRadius: 8,
-                  offset: const Offset(0, 4),
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
@@ -1149,9 +1148,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: const EdgeInsets.symmetric(vertical: 13),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
               child: _isBooking
@@ -1169,6 +1168,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
+                        letterSpacing: 0.3,
                       ),
                     ),
             ),
